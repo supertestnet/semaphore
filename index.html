@@ -1,0 +1,2486 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, user-scalable=no">
+        <script src="https://supertestnet.github.io/nostr-image-host/nostr_image_host.js"></script>
+        <script src="https://supertestnet.github.io/bitcoin-chess/js/qrcode.js"></script>
+        <script src="https://cdn.jsdelivr.net/gh/6502/sha256@main/sha256.js"></script>
+        <script src="https://unpkg.com/@cmdcode/tapscript@1.4.0"></script>
+        <script src="https://bundle.run/noble-secp256k1@1.2.14"></script>
+        <script src="https://bundle.run/bech32@2.0.0"></script>
+        <style>
+            * {
+                box-sizing: border-box;
+                font-size: 1.15rem;
+                font-family: Arial, sans-serif;
+            }
+            html {
+                max-width: 1000px;
+                line-height: 1.25;
+                padding: 0;
+            }
+            body {
+                margin: 0;
+                width: 100%;
+                background-color: lightblue;
+            }
+            h1 {
+                font-size: 2rem;
+            }
+            h2 {
+                font-size: 1.5rem;
+            }
+            input, textarea {
+                line-height: 1.25;
+                width: 100%;
+                height: 1.8rem;
+                font-size: 1.15rem;
+                border: 1px solid grey;
+            }
+            textarea {
+                height: 8rem;
+            }
+            .all_container {
+                width: 100%;
+                height: 100%;
+                position: absolute;
+                top: 0;
+                left: 0;
+                margin: auto;
+            }
+            .hidden {
+                display: none !important;
+            }
+            .logo_image {
+                max-width: 100%;
+            }
+            .navbar_container {
+                position: absolute;
+                top: 0px;
+                left: 0px;
+                width: 100%;
+                border-bottom: 1px solid black;
+                background-color: white;
+            }
+            .navbar {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                max-width: 1000px;
+                margin: auto;
+                height: 100px;
+                padding: 1rem;
+            }
+            .logo_name_and_desc {
+                display: flex;
+                justify-content: flex-start;
+                align-items: center;
+            }
+            .semaphore_logo {
+                border: 1px solid black;
+                width: 60px;
+                height: 60px;
+                border-radius: 50%;
+                overflow: hidden;
+            }
+            .semaphore_name_and_desc {
+                margin-left: 1rem;
+            }
+            .semaphore_name {
+                font-family: Garamond, serif;
+                font-style: italic;
+                font-weight: bold;
+                font-size: 200%;
+            }
+            .semaphore_desc {
+                font-style: italic;
+            }
+            .login_btn {
+                display: block;
+                background-color: orange;
+                width: 110px;
+                color: white;
+                font-weight: bold;
+                font-family: Helvetica, sans-serif;
+                padding: 0.5rem;
+                float: right;
+                cursor: pointer;
+            }
+            .below_navbar {
+                position: relative;
+                top: calc( 100px + 1rem );
+                padding: 1rem;
+                padding-top: 0;
+            }
+            .page_content {
+                max-width: 1000px;
+                margin: auto;
+            }
+            .countdown_div {
+                text-align: center;
+                margin-bottom: 1rem;
+            }
+            .project .project_header {
+                border: 1px solid black;
+                height: 200px;
+                width: 100%;
+                display: flex;
+            }
+            .project .image_and_name {
+                display: flex;
+                flex-direction: column;
+                flex-basis: 10%;
+                flex: 6;
+                background-size: cover;
+                background-position: 50% 50%;
+                background-repeat: no-repeat;
+                justify-content: flex-end;
+                color: white;
+            }
+            .project .project_nym {
+                height: 50%;
+                padding: 1rem;
+                display: flex;
+                align-items: flex-end;
+                font-size: 150%;
+                background-image: linear-gradient(rgb(255,255,255,0), black);
+            }
+            .project .project_meta {
+                background-color: purple;
+                display: flex;
+                flex-direction: column;
+                flex-basis: 10%;
+                flex: 4;
+                text-align: center;
+                color: white;
+            }
+            .project .raised_and_goal {
+                display: flex;
+                flex-direction: row;
+                flex-basis: 100%;
+                flex: 1;
+                align-items: center;
+            }
+            .project .raised_and_goal_inner, .project .raised_and_goal_inner * {
+                width: 100%;
+            }
+            .project .raised_div, .project .goal_div {
+                display: flex;
+                flex-direction: row;
+                flex-basis: 100%;
+                flex: 1;
+            }
+            .project .raised_inner {
+                font-size: 150%;
+            }
+            .project .raised, .project .num_of_pledgers, .project .percent_funded {
+                font-size: 150%;
+                font-weight: bold;
+            }
+            .project .goal_inner, .project .num_of_pledgers_label, .project .percent_funded_label, .project .raised, .project .raised_ending {
+                font-size: 90%;
+            }
+            .project .goal_inner span {
+                font-size: 100%;
+            }
+            .project .num_and_percent {
+                display: flex;
+                align-items: center;
+                height: 100%;
+                border-top: 2px solid black;
+                flex-direction: row;
+                flex-basis: 100%;
+                flex: 1;
+            }
+            .project .num_of_pledgers_div, .project .percent_funded_div {
+                display: flex;
+                flex-direction: column;
+                flex-basis: 100%;
+                flex: 1;
+                justify-content: center;
+            }
+            .project .num_of_pledgers_div {
+                border-right: 2px solid black;
+                height: 100%;
+            }
+            .project .percent_funded_div {
+                height: 100%;
+            }
+            .project .project_body {
+                padding: 1rem 1rem;
+                background-color: white;
+            }
+            .project .pledge_div {
+                text-align: center;
+            }
+            .project .button {
+                display: block;
+                background-color: orange;
+                width: 100%;
+                max-width: calc( 400px - 2rem );
+                color: white;
+                font-weight: bold;
+                font-family: Helvetica, sans-serif;
+                padding: 0.5rem;
+                float: right;
+                cursor: pointer;
+                margin-bottom: 1rem;
+            }
+            .project .revoke_button, .project .claim_button {
+                clear: both;
+            }
+            .project .column_right {
+                float: right;
+                clear: both;
+                max-width: calc( 400px - 2rem );
+                width: 100%;
+            }
+            .project .column_left {
+                max-width: calc( 600px - 3.5rem );
+            }
+            .project .comments_bottom {
+                display: none;
+            }
+            .project .comment {
+                border: 2px solid orange;
+                margin-bottom: 1rem;
+            }
+            .project .contrib_div {
+                text-align: center;
+                background-color: orange;
+                color: white;
+                font-weight: bold;
+            }
+            .project .inner_comment_div {
+                margin: 1rem;
+                text-align: center;
+            }
+            .black-bg {
+                width: 100%;
+                position: fixed;
+                top: 0;
+                left: 0;
+                background-color: black;
+                opacity: .5;
+                width: 100vw;
+                height: 100vh;
+            }
+            .modal {
+                position: fixed;
+                box-sizing: border-box;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%,-50%);
+                width: 90%;
+                max-width: 560px;
+                background-color: white;
+                border-radius: 1rem;
+                padding: 20px;
+                color: black;
+                text-align: center;
+                word-wrap: break-word;
+            }
+            .modal * {
+                color: black;
+            }
+            .reversibility_button {
+                padding: 0.5rem;
+                color: white;
+                width: 8rem;
+                cursor: pointer;
+                border-radius: 0.5rem;
+            }
+            .irreversible {
+                background-color: blue;
+            }
+            .reversible {
+                background-color: green;
+            }
+            .qr_code {
+                max-width: 18rem;
+            }
+            .create_project {
+                max-width: 60ch;
+                margin: auto;
+                background-color: #fff5d9;
+                border: 1px solid black;
+                padding: 1rem;
+                border-radius: 1rem;
+            }
+            .project .comments_label {
+                font-weight: bold;
+                margin-top: 0;
+                text-align: center;
+            }
+            .status {
+                margin-top: 1rem;
+            }
+            @media screen and (max-width: 990px) {
+                .semaphore_logo {
+                    width: 40px;
+                    height: 40px;
+                }
+                .semaphore_name_and_desc .semaphore_name {
+                    font-size: 160%;
+                }
+                .semaphore_name_and_desc .semaphore_desc {
+                    font-size: 80%;
+                }
+                .project .project_header {
+                    border: 1px solid black;
+                    height: 400px;
+                    width: 100%;
+                    display: flex;
+                    flex-direction: column;
+                }
+                .project .image_and_name {
+                    background-size: cover;
+                    background-position: 50% 50%;
+                    justify-content: flex-end;
+                    color: white;
+                }
+                .project .project_meta {
+                    background-color: purple;
+                    text-align: center;
+                    color: white;
+                }
+                .project .button {
+                    max-width: none;
+                    width: 100%;
+                    float: none;
+                    margin-bottom: 1rem;
+                }
+                .project .column_left {
+                    max-width: 100%;
+                    margin-bottom: 1rem;
+                }
+                .project .column_right {
+                    display: none;
+                }
+                .project .comments_bottom {
+                    display: block;
+                }
+            }
+        </style>
+        <script>
+            var $ = document.querySelector.bind( document );
+            var $$ = document.querySelectorAll.bind( document );
+            var url_params = new URLSearchParams( window.location.search );
+            var url_keys = url_params.keys();
+            var $_GET = {}
+            for ( var key of url_keys ) $_GET[ key ] = url_params.get( key );
+        </script>
+        <script>
+            //fundraiser: file:///home/supertestnet/semaphore/index.html?fundraiser=nimg17ff779vkfuau77xpdy7l2wrvk62t6hr6q304qqpr6mkrn2phejg8wumn8ghj7mn0wd68yat99e3k7mgv6u6hj
+            //contribution id: efba437c53a5dd13b6c377e9636971c123b80622e790a3d1b56faebf4cd65fe3 -- to nostrue.com
+            // var btc_sec = "bb".repeat( 32 );
+            var btc_sec = nostr_image_host.bytesToHex( nobleSecp256k1.utils.randomPrivateKey() );
+            // var btc_sec = "662c2ec7a1c447f137d4cc4bf58ae6e70f96a85ca5d78a50ed042bf9c5fd9f60";
+            var btc_pub = nobleSecp256k1.getPublicKey( btc_sec, true ).substring( 2 );
+            var contributor_utxos;
+            var contributed_utxos = [];
+            var fundraiser_addy;
+            var timeloop_seconds;
+            var socket;
+            var project;
+            var relay = "wss://nostrue.com";
+            var btc_net = "mutinynet.com";
+            var used_txid_and_vouts = [];
+            var upload_data = [];
+            var downloaded_sigs = {}
+            var lastblock;
+            var levels = [];
+            var funds_spent_cooperatively = false;
+            var hexToBase64 = hex => btoa( hex.match( /\w{2}/g ).map( a => String.fromCharCode( parseInt( a, 16 ) ) ).join( "" ) );
+            var finishUpload = async ( socket, main_sigs, extra_sigs_id, contributor_key, fundraiser_key, txid, vout, comment, recovery, recovery_fee, privKey, pubKey ) => {
+                var note = JSON.stringify({
+                    fundraiser_id: $_GET[ "fundraiser" ],
+                    main_sigs,
+                    extra_sigs_id,
+                    contributor_key,
+                    txid,
+                    vout,
+                    public_comment: comment,
+                    recovery,
+                    recovery_fee,
+                });
+                var event = {
+                    "content"    : note,
+                    "created_at" : Math.floor( Date.now() / 1000 ),
+                    "kind"       : 62116,
+                    "tags"       : [ [ "p", fundraiser_key ] ],
+                    "pubkey"     : pubKey,
+                }
+                var signedEvent = await nostr_image_host.getSignedEvent( event, privKey );
+                socket.send( JSON.stringify([ "EVENT", signedEvent ]) );
+                console.log( "contribution id:", signedEvent.id );
+                await nostr_image_host.waitSomeSeconds( 2 );
+                socket.close();
+                var backup_file_contents = {
+                    privkey: btc_sec,
+                    fundraiser_id: $_GET[ "fundraiser" ],
+                }
+                var fileName = `semaphore_contributor_${$_GET[ "fundraiser" ]}_backup.json`;
+                var html = `<p>Success! Your contribution has been recorded</p><p>You may receive an automatic refund if the fundraiser does not meet its goal but this is not guaranteed. Download and store <span style="color: blue; text-decoration: underline; cursor: pointer;" onclick='saveData( ${JSON.stringify( backup_file_contents )}, "${fileName}" );'>your backup file</span> so you can upload it later using the "Log in" button and broadcast your own refund.</p>`;
+                checkForUtxos();
+                showModal( html );
+            }
+            function getData( url ) {
+                return new Promise( async function( resolve, reject ) {
+                    function inner_get( url ) {
+                        var xhttp = new XMLHttpRequest();
+                        xhttp.open( "GET", url, true );
+                        xhttp.send();
+                        return xhttp;
+                    }
+                    var data = inner_get( url );
+                    data.onerror = function( e ) {
+                        resolve( "error" );
+                    }
+                    async function isResponseReady() {
+                        return new Promise( function( resolve2, reject ) {
+                            if ( !data.responseText || data.readyState != 4 ) {
+                                setTimeout( async function() {
+                                    var msg = await isResponseReady();
+                                    resolve2( msg );
+                                }, 1 );
+                            } else {
+                                resolve2( data.responseText );
+                            }
+                        });
+                    }
+                    var returnable = await isResponseReady();
+                    resolve( returnable );
+                });
+            }
+            var satsToBitcoin = sats => {
+                var btc = String( sats ).padStart( 8, "0" ).slice( 0,-8 ) + "." + String( sats ).padStart( 8, "0" ).slice( -8 );
+                if ( btc.endsWith( "00000" ) ) {
+                    btc = btc.substring( 0, btc.length - 5 );
+                    var i; for ( i=0; i<5; i++ ) {
+                        if ( btc.endsWith( "0" ) ) btc = btc.substring( 0, btc.length - 1 );
+                    }
+                    if ( btc.endsWith( "." ) ) btc = btc.substring( 0, btc.length - 1 );
+                }
+                return btc;
+            }
+            var loadProject = async project => {
+                $( '.project' ).innerHTML = '';
+                var html = `
+                    <div class="user_project">
+                        <div class="countdown_div">loading...</div>
+                        <div class="project_header hidden">
+                            <div class="image_and_name">
+                                <div class="project_nym"></div>
+                            </div>
+                            <div class="project_meta">
+                                <div class="raised_and_goal">
+                                    <div class="raised_and_goal_inner">
+                                        <div class="raised_div">
+                                            <div class="raised_inner">
+                                                <span class="raised">0</span> <span class="raised_ending"></span>
+                                            </div>
+                                        </div>
+                                        <div class="goal_div">
+                                            <div class="goal_inner">
+                                                PLEDGED OF <span class="goal"></span> <span class="goal_ending"></span> GOAL
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="num_and_percent">
+                                    <div class="num_of_pledgers_div"><div class="num_of_pledgers">0</div><div class="num_of_pledgers_label">PLEDGERS</div></div>
+                                    <div class="percent_funded_div"><div class="percent_funded">0%</div><div class="percent_funded_label">FUNDED</div></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="project_body hidden">
+                            <div class="pledge_div"><button class="button pledge_button">PLEDGE</button></div>
+                            <div class="revoke_div"><button class="button revoke_button hidden">REVOKE</button></div>
+                            <div class="revoke_div"><button class="button claim_button hidden">CLAIM</button></div>
+                            <div class="column_right"><p class="comments_label hidden">Comments</p></div>
+                            <div class="column_left"></div>
+                            <div class="comments_bottom"><p class="comments_label hidden">Comments</p></div>
+                            <div style="clear: both;"></div>
+                        </div>
+                    </div>
+                `;
+                var div = document.createElement( "div" );
+                div.innerHTML = html;
+                div = div.firstElementChild;
+                $( '.project' ).append( div );
+                if ( btc_pub == project.project_key ) $( '.claim_button' ).classList.remove( "hidden" );
+                var current_blockheight = await getBlockheight( "" );
+                var blocks_left = project.project_end - current_blockheight;
+                var time_left = blocks_left * 600;
+                if ( !timeloop_seconds ) timeloop( time_left );
+                $( ".project_nym" ).innerText = project.project_nym;
+                var b64 = project.project_pic;
+                $( ".image_and_name" ).setAttribute( "data-bg", b64 );
+                $( ".image_and_name" ).style.backgroundImage = `url( '${b64}' )`;
+                var goal = project.project_gol;
+                var goal_ending = "SATS";
+                if ( goal > 1000000 ) {
+                    goal = satsToBitcoin( goal );
+                    goal_ending = "BTC";
+                } else {
+                    goal = goal.toLocaleString();
+                }
+                $( ".goal" ).innerText = goal;
+                $( ".goal_ending" ).innerText = goal_ending;
+                var raised = Number( $( ".raised" ).innerText );
+                $( ".column_left" ).innerText = project.project_dsc;
+                var script = [ 0, btc_pub, 'OP_CHECKSIGADD', project.project_key, 'OP_CHECKSIGADD', 2, 'OP_EQUAL' ];
+                var tapleaf = tapscript.Tap.encodeScript( script );
+                var [ tseckey_keypath ] = tapscript.Tap.getSecKey( btc_sec, { tree: [script].map( s => tapscript.Tap.encodeScript( s ) ) } );
+                // var [ tseckey_script_path ] = tapscript.Tap.getSecKey( btc_sec, { tree: [script].map( s => tapscript.Tap.encodeScript( s ) ), target: tapleaf });
+                var [ tpubkey, cblock ] = tapscript.Tap.getPubKey( btc_pub, { target: tapleaf });
+                var address = tapscript.Address.p2tr.fromPubKey( tpubkey, 'testnet' );
+                $( ".pledge_button" ).onclick = async () => {
+                    var main_sigs = [];
+                    var extra_sigs = [];
+                    sessionStorage.removeItem( "modal_cleared" );
+                    sessionStorage.removeItem( "reversible" );
+                    show_pledge_options();
+                    await getNote( "modal_cleared" );
+                    if ( !( "reversible" in sessionStorage ) ) return;
+                    sessionStorage.removeItem( "reversible" );
+                    sessionStorage.removeItem( "modal_cleared" );
+                    sessionStorage.removeItem( "recovery" );
+                    showModal( `
+                        <p style="font-weight: bold;">Enter a bitcoin address for a refund if the fundraiser does not reach its goal</p>
+                        <p><input style="max-width: 90%" class="recovery_address"></p>
+                        <p><button class="submit_recovery_address" onclick="sessionStorage[ 'recovery' ] = $( '.recovery_address' ).value;sessionStorage[ 'modal_cleared' ] = true;">Submit</button></p>
+                    `, true );
+                    await getNote( "modal_cleared" );
+                    var recovery = await getNote( "recovery" );
+                    var url = "bitcoin:" + address;
+                    var a = document.createElement( "a" );
+                    a.href = url;
+                    a.target = "_blank";
+                    a.append( createQR( url.toUpperCase() ) );
+                    var prep_div = document.createElement( "div" );
+                    prep_div.append( a );
+                    var div_html = prep_div.innerHTML + `<p>${address}</p>`;
+                    showModal( div_html );
+                    var utxos = await getData( `https://${btc_net}/api/address/${address}/utxo` );
+                    utxos = JSON.parse( utxos );
+                    var simplified_utxos = [];
+                    utxos.forEach( item => simplified_utxos.push( `${item[ "txid" ]}:${item[ "vout" ]}` ) );
+                    var new_utxo = await utxoloop( address, simplified_utxos );
+                    sessionStorage.removeItem( "modal_cleared" );
+                    sessionStorage.removeItem( "comment" );
+                    showModal( `
+                        <p style="font-weight: bold;">Pledge detected! Enter a comment to send with it (optional)</p>
+                        <p><input style="max-width: 90%" class="modal_comment"></p>
+                        <p>Chars left: <span class="modal_comment_chars_left">140</span></p>
+                        <p><button class="submit_modal_comment">Submit</button></p>
+                    `, true );
+                    $( '.submit_modal_comment' ).onclick = () => {
+                        sessionStorage[ 'comment' ] = $( '.modal_comment' ).value;
+                        sessionStorage[ 'modal_cleared' ] = true;
+                        showModal( `
+                            <p>loading...this usually takes 50 seconds</p>
+                            <h2>Progress bar <span id='goal' style='font-size: .8em; font-weight: normal;'></span></h2>
+                            <div class='progressOutline' style='height: 2em; border: 1px solid grey; border-radius: 25px; overflow: hidden;'>
+                                <div class='progressBar' style='height: 2em; background-color: #61eb34; width: 0%; transition: width 1s;'></div>
+                            </div>
+                        ` );
+                    }
+                    $( '.modal_comment' ).onchange = () => {
+                        var text = $( '.modal_comment' ).value;
+                        var limit = 140;
+                        var length = text.length;
+                        if ( limit - length < 0 ) return $( '.modal_comment' ).value = text.substring( 0, limit );
+                        $( '.modal_comment_chars_left' ).innerText = `${limit - length}`;
+                    }
+                    $( '.modal_comment' ).onkeyup = () => {
+                        var text = $( '.modal_comment' ).value;
+                        var limit = 140;
+                        var length = text.length;
+                        if ( limit - length < 0 ) return $( '.modal_comment' ).value = text.substring( 0, limit );
+                        $( '.modal_comment_chars_left' ).innerText = `${limit - length}`;
+                    }
+                    await getNote( "modal_cleared" );
+                    var comment = await getNote( "comment" );
+                    sessionStorage.removeItem( "comment" );
+                    var txid_vout_amt = new_utxo.split( ":" );
+                    var txid = txid_vout_amt[ 0 ];
+                    var vout = Number( txid_vout_amt[ 1 ] );
+                    var amt = Number( txid_vout_amt[ 2 ] );
+                    var fee_rates = await getThreeFeeRates( "" );
+                    var sats_per_byte = fee_rates[ 1 ];
+                    //I assume the txsize begins as 4 bytes for the version number, 4
+                    //bytes for the locktime, 1 byte for the size of the witness script,
+                    //1 byte for the size of the locking script, 1 byte for the size
+                    //of the pubkey in the locking script, and 1 byte for OP_0 or OP_1
+                    //preceding the output script
+                    var txsize = 12;
+                    //I calculate that inputs add 65 bytes for the sig, 35 bytes for
+                    //the txid, and 5 bytes for the vout (remembering that each one
+                    //is preceded by a byte that indicates how long that string is)
+                    txsize = txsize + 65 + 33 + 5;
+                    //I calculate that outputs add 41 bytes apiece by
+                    //assuming the average scriptpubkey is 33 bytes
+                    //and assuming amounts are denoted in 8 bytes
+                    txsize = txsize + 41;
+                    var recovery_fee = txsize * sats_per_byte;
+                    var recovery_txdata = tapscript.Tx.create({
+                        vin: [{
+                            txid: txid,
+                            vout: vout,
+                            sequence: 0xfffffffd,
+                            prevout: {
+                                value: amt,
+                                scriptPubKey: tapscript.Address.toScriptPubKey( address ),
+                            },
+                        }],
+                        vout: [{
+                            value: amt - recovery_fee,
+                            scriptPubKey: tapscript.Address.toScriptPubKey( recovery ),
+                        }],
+                        locktime: project.project_end + 144,
+                    });
+                    var recovery_sig = tapscript.Signer.taproot.sign( tseckey_keypath, recovery_txdata, 0 ).hex;
+                    main_sigs.push( recovery_sig );
+                    var i; for ( i=0; i<901; i++ ) {
+                        var ten_percent = Math.floor( ( project.project_gol * .01 ) );
+                        var extra = ten_percent * i;
+                        var goal_amt = project.project_gol + extra;
+                        var contribution_txdata = tapscript.Tx.create({
+                            vin: [{
+                                txid: txid,
+                                vout: vout,
+                                prevout: {
+                                    value: amt,
+                                    scriptPubKey: tapscript.Address.toScriptPubKey( address ),
+                                },
+                            }],
+                            vout: [{
+                                value: goal_amt,
+                                scriptPubKey: tapscript.Address.toScriptPubKey( project.project_add ),
+                            }],
+                        });
+                        var contribution_sig = tapscript.Signer.taproot.sign( btc_sec, contribution_txdata, 0, { extension: tapleaf, sigflag: 128 | 1 } ).hex;
+                        if ( !i ) main_sigs.push( contribution_sig );
+                        else extra_sigs.push( contribution_sig );
+                    }
+                    var b64 = hexToBase64( extra_sigs.join( "" ) );
+                    socket = new WebSocket( relay );
+                    socket.addEventListener('open', async function( e ) {
+                        var array = b64.match(/.{1,4000}/g);
+                        var privKey = nostr_image_host.bytesToHex( nobleSecp256k1.utils.randomPrivateKey() );
+                        var pubKey = nobleSecp256k1.getPublicKey( privKey, true ).substring( 2 );
+                        var i; for ( i=0; i<array.length; i++ ) {
+                            var note = array[ i ];
+                            var part = i + 1;
+                            var whole = array.length;
+                            var id = await nostr_image_host.sendNoteAndReturnId( note, part, whole, socket, privKey, pubKey );
+                            var nimg = nostr_image_host.hexToBech32( "nimg", id + nostr_image_host.textToHex( relay ) );
+                            var percent = Number( ( ( part / whole ) * 100 ).toFixed( 2 ) );
+                            if ( $( '.progressBar' ) ) $( '.progressBar' ).style.width = String( percent ) + "%";
+                            if ( percent == 100 ) finishUpload( socket, main_sigs, nimg, btc_pub, project.project_key, txid, vout, comment, recovery, recovery_fee, privKey, pubKey );
+                            await nostr_image_host.waitSomeSeconds( 2 );
+                        }
+                    });
+                }
+                $( '.revoke_button' ).onclick = async () => {
+                    var fee_options = await getThreeFeeRates( "" );
+                    sessionStorage.removeItem( "modal_cleared" );
+                    sessionStorage.removeItem( "destino" );
+                    showModal( `<p>Please enter a bitcoin address where you want to recover your pledge to.</p><p><input class="modal_destino" style="max-width: 90%;"></p><p><button class="modal_submit_destino" onclick="sessionStorage.destino = $( '.modal_destino' ).value;sessionStorage.modal_cleared = true;">Submit</button></p>`, true );
+                    await getNote( "modal_cleared" );
+                    var destino = sessionStorage[ "destino" ];
+                    if ( !destino ) return showModal( "You entered an invalid address. Please try again." );
+                    sessionStorage.removeItem( "destino" );
+                    sessionStorage.removeItem( "modal_cleared" );
+                    sessionStorage.removeItem( "destino" );
+                    showModal( `<p>Please enter a fee rate as a number. Specifically, the number of sats per byte you want to pay. The minimum rate is ${fee_options[ 0 ]}, the average rate is ${fee_options[ 1 ]}, and the urgent rate is ${fee_options[ 2 ]}.</p><p><input class="modal_sats_per_byte" style="max-width: 90%;"></p><p><button class="modal_submit_sats_per_byte" onclick="sessionStorage.sats_per_byte = $( '.modal_sats_per_byte' ).value;sessionStorage.modal_cleared = true;">Submit</button></p>`, true );
+                    $( '.x_modal' ).classList.add( "hidden" );
+                    await getNote( "modal_cleared" );
+                    sessionStorage.removeItem( "modal_cleared" );
+                    modalVanish();
+                    $( '.x_modal' ).classList.remove( "hidden" );
+                    var sats_per_byte = Number( sessionStorage[ "sats_per_byte" ] );
+                    sessionStorage.removeItem( "sats_per_byte" );
+                    if ( !sats_per_byte ) return showModal( "You entered an invalid fee rate. You must enter a number greater than 0, such as 5, 10, or 25. Please try again." );
+                    spendCoins( destino, sats_per_byte );
+                }
+                $( ".claim_button" ).onclick = async () => {
+                    showModal( `<p>loading...</p>` );
+                    var inputs = [];
+                    var amt_in_reversible_pledges = 0;
+                    contributed_utxos.forEach( item => amt_in_reversible_pledges = amt_in_reversible_pledges + item[ "value" ] );
+                    var total = $( '.raised' ).innerText.replaceAll( ",", "" );
+                    if ( total.includes( "." ) ) {
+                        var num_of_digits_after_period = total.substring( total.indexOf( "." ) + 1 ).length;
+                        var string_of_zeros = "";
+                        var i; for ( i=0; i<8 - num_of_digits_after_period; i++ ) string_of_zeros = string_of_zeros + "0";
+                        total = total.replaceAll( ".", "" );
+                        total = total + string_of_zeros;
+                    }
+                    total = Number( total );
+                    if ( !contributed_utxos.length && total ) return showModal( `There are no new contributions for you to claim` );
+                    if ( !contributed_utxos.length ) return showModal( `There are no contributions for you to claim` );
+                    // the following three lines are for testing the various scenarios
+                    // amt_in_reversible_pledges = 20_000;
+                    // total = 20_000;
+                    // project.project_gol = 10_000;
+                    await prepLevels();
+                    var next_level;
+                    levels.every( ( level_num, index ) => {
+                        if ( level_num > amt_in_reversible_pledges ) {next_level = index;return}
+                        return true;
+                    });
+                    if ( next_level > -1 ) var current_level = next_level - 1;
+                    else {
+                        var current_level = levels.length - 1;
+                        next_level = levels.length - 1;
+                    }
+                    if ( current_level < 0 ) current_level = 0;
+                    var fee_rates = await getThreeFeeRates( "" );
+                    var sats_per_byte = fee_rates[ 1 ];
+                    //I assume the txsize begins as 4 bytes for the version number, 4
+                    //bytes for the locktime, 1 byte for the size of the witness script,
+                    //1 byte for the size of the locking script, 1 byte for the size
+                    //of the pubkey in the locking script, and 1 byte for OP_0 or OP_1
+                    //preceding the output script
+                    var txsize = 12;
+                    //I calculate that inputs add 65 bytes for the first sig, 64 bytes
+                    //for the second sig, 32 bytes for the txid, 4 bytes for the vout,
+                    //64 bytes for the two x-only pubkeys in the script, 7 bytes for
+                    //the various opcodes in the script, and 33 bytes for the cblock
+                    contributed_utxos.forEach( item => txsize = txsize + 65 + 64 + 32 + 4 + 64 + 7 + 33 );
+                    //I calculate that outputs add 41 bytes apiece by
+                    //assuming the average scriptpubkey is 33 bytes
+                    //and assuming amounts are denoted in 8 bytes
+                    txsize = txsize + 41;
+                    //assume an extra input since they have to deposit part
+                    //of their irreversible pledges to reach their goal
+                    txsize_with_extra_input = txsize + 64 + 32 + 4;
+                    var mining_fee_with_no_extra_input = txsize * sats_per_byte;
+                    var mining_fee_with_extra_input = txsize_with_extra_input * sats_per_byte;
+                    if ( mining_fee_with_no_extra_input < 172 ) mining_fee_with_no_extra_input = 172;
+                    if ( mining_fee_with_extra_input < 172 ) mining_fee_with_extra_input = 172;
+                    var some_money_in_irreversible = total > amt_in_reversible_pledges;
+
+                    var total_friendly = total;
+                    var total_ending = "sats";
+                    if ( total_friendly > 1000000 ) {
+                        total_friendly = satsToBitcoin( total_friendly );
+                        total_ending = "btc";
+                    } else {
+                        total_friendly = total_friendly.toLocaleString();
+                    }
+
+                    if ( current_level > 0 ) {
+                        var prev_level_friendly = levels[ current_level - 1 ];
+                        var prev_level_ending = "sats";
+                        if ( prev_level_friendly > 1000000 ) {
+                            prev_level_friendly = satsToBitcoin( prev_level_friendly );
+                            prev_level_ending = "btc";
+                        } else {
+                            prev_level_friendly = prev_level_friendly.toLocaleString();
+                        }
+                    }
+
+                    var current_level_friendly = levels[ current_level ];
+                    var current_level_ending = "sats";
+                    if ( current_level_friendly > 1000000 ) {
+                        current_level_friendly = satsToBitcoin( current_level_friendly );
+                        current_level_ending = "btc";
+                    } else {
+                        current_level_friendly = current_level_friendly.toLocaleString();
+                    }
+
+                    var next_level_friendly = levels[ next_level ];
+                    var next_level_ending = "sats";
+                    if ( next_level_friendly > 1000000 ) {
+                        next_level_friendly = satsToBitcoin( next_level_friendly );
+                        next_level_ending = "btc";
+                    } else {
+                        next_level_friendly = next_level_friendly.toLocaleString();
+                    }
+
+                    goal_minus_total = levels[ next_level ] - total;
+                    var goal_minus_total_friendly = goal_minus_total;
+                    var goal_minus_total_ending = "sats";
+                    if ( goal_minus_total_friendly > 1000000 ) {
+                        goal_minus_total_friendly = satsToBitcoin( goal_minus_total_friendly );
+                        goal_minus_total_ending = "btc";
+                    } else {
+                        goal_minus_total_friendly = goal_minus_total_friendly.toLocaleString();
+                    }
+
+                    var amt_in_reversible_pledges_friendly = amt_in_reversible_pledges;
+                    var amt_in_reversible_pledges_ending = "sats";
+                    if ( amt_in_reversible_pledges_friendly > 1000000 ) {
+                        amt_in_reversible_pledges_friendly = satsToBitcoin( amt_in_reversible_pledges_friendly );
+                        amt_in_reversible_pledges_ending = "btc";
+                    } else {
+                        amt_in_reversible_pledges_friendly = amt_in_reversible_pledges_friendly.toLocaleString();
+                    }
+
+                    var remainder = total - amt_in_reversible_pledges;
+                    var remainder_friendly = remainder;
+                    var remainder_ending = "sats";
+                    if ( remainder_friendly > 1000000 ) {
+                        remainder_friendly = satsToBitcoin( remainder_friendly );
+                        remainder_ending = "btc";
+                    } else {
+                        remainder_friendly = remainder_friendly.toLocaleString();
+                    }
+
+                    goal_minus_reversible = levels[ next_level ] - amt_in_reversible_pledges;
+                    var goal_minus_reversible_friendly = goal_minus_reversible;
+                    var goal_minus_reversible_ending = "sats";
+                    if ( goal_minus_reversible_friendly > 1000000 ) {
+                        goal_minus_reversible_friendly = satsToBitcoin( goal_minus_reversible_friendly );
+                        goal_minus_reversible_ending = "btc";
+                    } else {
+                        goal_minus_reversible_friendly = goal_minus_reversible_friendly.toLocaleString();
+                    }
+
+                    var deposit_for_current_level = ( levels[ current_level ] - amt_in_reversible_pledges ) + mining_fee_with_extra_input;
+                    if ( deposit_for_current_level < 546 ) deposit_for_current_level = 546;
+                    var deposit_for_current_level_friendly = deposit_for_current_level;
+                    var deposit_for_current_level_ending = "sats";
+                    if ( deposit_for_current_level_friendly > 1000000 ) {
+                        deposit_for_current_level_friendly = satsToBitcoin( deposit_for_current_level_friendly );
+                        deposit_for_current_level_ending = "btc";
+                    } else {
+                        deposit_for_current_level_friendly = deposit_for_current_level_friendly.toLocaleString();
+                    }
+
+                    var deposit_for_next_level = ( levels[ next_level ] - amt_in_reversible_pledges ) + mining_fee_with_extra_input;
+                    if ( deposit_for_next_level < 546 ) deposit_for_next_level = 546;
+                    var deposit_for_next_level_friendly = deposit_for_next_level;
+                    var deposit_for_next_level_ending = "sats";
+                    if ( deposit_for_next_level_friendly > 1000000 ) {
+                        deposit_for_next_level_friendly = satsToBitcoin( deposit_for_next_level_friendly );
+                        deposit_for_next_level_ending = "btc";
+                    } else {
+                        deposit_for_next_level_friendly = deposit_for_next_level_friendly.toLocaleString();
+                    }
+
+                    var extra = amt_in_reversible_pledges - levels[ current_level ];
+                    var extra_friendly = extra;
+                    var extra_ending = "sats";
+                    if ( extra_friendly > 1000000 ) {
+                        extra_friendly = satsToBitcoin( extra_friendly );
+                        extra_ending = "btc";
+                    } else {
+                        extra_friendly = extra_friendly.toLocaleString();
+                    }
+
+                    var overpayment = extra - mining_fee_with_no_extra_input;
+                    var overpayment_friendly = overpayment;
+                    var overpayment_ending = "sats";
+                    if ( overpayment_friendly > 1000000 ) {
+                        overpayment_friendly = satsToBitcoin( overpayment_friendly );
+                        overpayment_ending = "btc";
+                    } else {
+                        overpayment_friendly = overpayment_friendly.toLocaleString();
+                    }
+
+                    var remainder_if_exeeding_10x = total - levels[ current_level ];
+                    var remainder_if_exeeding_10x_friendly = remainder_if_exeeding_10x;
+                    var remainder_if_exeeding_10x_ending = "sats";
+                    if ( remainder_if_exeeding_10x_friendly > 1000000 ) {
+                        remainder_if_exeeding_10x_friendly = satsToBitcoin( remainder_if_exeeding_10x_friendly );
+                        remainder_if_exeeding_10x_ending = "btc";
+                    } else {
+                        remainder_if_exeeding_10x_friendly = remainder_if_exeeding_10x_friendly.toLocaleString();
+                    }
+
+                    if ( current_level > 0 ) {
+                        var more_extra = amt_in_reversible_pledges - levels[ current_level - 1 ];
+                        var more_extra_friendly = more_extra;
+                        var more_extra_ending = "sats";
+                        if ( more_extra_friendly > 1000000 ) {
+                            more_extra_friendly = satsToBitcoin( more_extra_friendly );
+                            more_extra_ending = "btc";
+                        } else {
+                            more_extra_friendly = more_extra_friendly.toLocaleString();
+                        }
+
+                        var more_overpayment = more_extra - mining_fee_with_no_extra_input;
+                        var more_overpayment_friendly = more_overpayment;
+                        var more_overpayment_ending = "sats";
+                        if ( more_overpayment_friendly > 1000000 ) {
+                            more_overpayment_friendly = satsToBitcoin( more_overpayment_friendly );
+                            more_overpayment_ending = "btc";
+                        } else {
+                            more_overpayment_friendly = more_overpayment_friendly.toLocaleString();
+                        }
+                    }
+
+                    if ( total < levels[ current_level ] && current_level == 0 ) return showModal( `<p>Be patient! You need ${goal_minus_total_friendly} more ${goal_minus_total_ending} before you can claim your funds</p>` );
+
+                    var we_are_in_scen_9;
+                    var we_are_in_scen_10;
+
+                    var amount_i_can_withdraw_if_i_must_step_down;
+                    var index_of_amount_i_can_withdraw_if_i_must_step_down = -1;
+
+                    if ( more_extra < mining_fee_with_no_extra_input ) {
+                        //console.log( `the amount of fees I would pay if I used my reversible contributions of ${amt_in_reversible_pledges_friendly} ${amt_in_reversible_pledges_ending} to withdraw ${prev_level_friendly} ${prev_level_ending} is ${more_extra} but it needs to be at least ${mining_fee_with_no_extra_input} sats.` );
+                        var reversed_levels = JSON.parse( JSON.stringify( levels ) ).reverse();
+                        var i_must_get_lower_than = amt_in_reversible_pledges - mining_fee_with_no_extra_input;
+                        //console.log( `I must withdraw the first amount lower than`, i_must_get_lower_than );
+                        reversed_levels.every( item => {
+                            if ( item < i_must_get_lower_than ) {
+                                amount_i_can_withdraw_if_i_must_step_down = item;
+                                return;
+                            }
+                            return true;
+                        });
+                        if ( amount_i_can_withdraw_if_i_must_step_down ) index_of_amount_i_can_withdraw_if_i_must_step_down = levels.indexOf( amount_i_can_withdraw_if_i_must_step_down );
+                        if ( index_of_amount_i_can_withdraw_if_i_must_step_down < 0 && some_money_in_irreversible ) we_are_in_scen_9 = true;
+                        if ( index_of_amount_i_can_withdraw_if_i_must_step_down < 0 && !some_money_in_irreversible ) we_are_in_scen_10 = true;
+                    } else {
+                        amount_i_can_withdraw_if_i_must_step_down = levels[ current_level - 1 ];
+                        index_of_amount_i_can_withdraw_if_i_must_step_down = levels.indexOf( amount_i_can_withdraw_if_i_must_step_down );
+                    }
+
+                    if ( index_of_amount_i_can_withdraw_if_i_must_step_down > -1 && index_of_amount_i_can_withdraw_if_i_must_step_down != current_level - 1 ) {
+                        var more_extra = amt_in_reversible_pledges - levels[ index_of_amount_i_can_withdraw_if_i_must_step_down ];
+                        var more_extra_friendly = more_extra;
+                        var more_extra_ending = "sats";
+                        if ( more_extra_friendly > 1000000 ) {
+                            more_extra_friendly = satsToBitcoin( more_extra_friendly );
+                            more_extra_ending = "btc";
+                        } else {
+                            more_extra_friendly = more_extra_friendly.toLocaleString();
+                        }
+
+                        var more_overpayment = more_extra - mining_fee_with_no_extra_input;
+                        var more_overpayment_friendly = more_overpayment;
+                        var more_overpayment_ending = "sats";
+                        if ( more_overpayment_friendly > 1000000 ) {
+                            more_overpayment_friendly = satsToBitcoin( more_overpayment_friendly );
+                            more_overpayment_ending = "btc";
+                        } else {
+                            more_overpayment_friendly = more_overpayment_friendly.toLocaleString();
+                        }
+                    }
+
+                    var amount_i_can_withdraw_if_i_must_step_down_friendly = amount_i_can_withdraw_if_i_must_step_down;
+                    var amount_i_can_withdraw_if_i_must_step_down_ending = "sats";
+                    if ( amount_i_can_withdraw_if_i_must_step_down_friendly > 1000000 ) {
+                        amount_i_can_withdraw_if_i_must_step_down_friendly = satsToBitcoin( amount_i_can_withdraw_if_i_must_step_down_friendly );
+                        amount_i_can_withdraw_if_i_must_step_down_ending = "btc";
+                    } else {
+                        amount_i_can_withdraw_if_i_must_step_down_friendly = amount_i_can_withdraw_if_i_must_step_down_friendly.toLocaleString();
+                    }
+
+                    // There are 4 variables:
+                        //(1) can be "enough in reversible for level X without fees" OR "enough in reversible for level X with fees" DOUBLE BUT there is some money in irreversible
+                        //(2) can be "X == 0" or "X > 0"
+                        //(3) can be "X == levels.length - 1" or "X < levels.length - 1"
+                        //(4) can be "there is some money in irreversible" OR "there is NO money in irreversible"
+
+                    // You might think these would lead to 2^4 = 16 combinations: 0000, 0001, 0010, 0011, 0100, 0101, 0110, 0111, 1000, 1001, 1010, 1011, 1100, 1101, 1110, 1111
+
+                    // However, 2 & 3 have some overlap. If 2 is 1 ("X > 0") 3 could be 0 or 1, but if 2 is 0 3 is definitely 1.
+                    // Similarly, if 3 is 1 ("X < levels.length - 1") 2 could be 0 or 1, but if 3 is 0 2 is definitely 1. Therefore, the
+                    // following items are impossible: 0000, 0001, 1000, 1001. So there are only 12 possibilities:
+
+                    // 0010, 0011, 0100, 0101, 0110, 0111, 1010, 1011, 1100, 1101, 1110, 1111
+
+                    // here are the items I actually coded:
+
+                    // 1100, 1101, 1010, 1110, 1011, 1111, 0110, 0111, 0100, 0101, 0010, 0011
+
+                    // which, being rearranged, is:
+
+                    // 0010, 0011, 0100, 0101, 0110, 0111, 1010, 1011, 1100, 1101, 1110, 1111
+
+                    // So all my bases are covered :D
+
+                    // Here are the scenarios I have to account for:
+
+                    // scen_1 = Enough in reversible for level X + fees (and there is an X + 1) AND there is some money in irreversible (1000 & 1100) <-- the first of those is impossible so it is really just 1100
+                    //     -- two options: (1) contribute enough to pay for level X + 1 + fees (2) pay for level X + fees (and possibly overpay fees)
+                    var scen_1 = ( amt_in_reversible_pledges >= levels[ current_level ] + mining_fee_with_no_extra_input && current_level < levels.length - 1 && some_money_in_irreversible && !we_are_in_scen_9 && !we_are_in_scen_10 );
+
+                    if ( scen_1 ) {
+                        //goal: 200_000 aka 0.002 btc reversible: 211_000 total: 221_000
+                        console.log( "scenario 1: amt_in_reversible_pledges", 680_000_000, "and total", 690_000_000 );
+                        var i; for ( i=0; i<contributed_utxos.length; i++ ) {
+                            var item = contributed_utxos[ i ];
+                            var index = i;
+                            var input = {
+                                txid: item[ "txid" ],
+                                vout: item[ "vout" ],
+                                prevout: {
+                                    value: item[ "value" ],
+                                    scriptPubKey: tapscript.Address.toScriptPubKey( item[ "address" ] ),
+                                }
+                            }
+                            if ( `num_${levels[ current_level ]}` in item[ "levels_with_valid_sig" ] ) var sig = item[ "levels_with_valid_sig" ][ `num_${levels[ current_level ]}` ];
+                            else continue;
+                            input.witness = [ sig ];
+                            inputs.push( input );
+                            var contribution_txdata = tapscript.Tx.create({
+                                vin: inputs,
+                                vout: [{
+                                    value: levels[ current_level ],
+                                    scriptPubKey: tapscript.Address.toScriptPubKey( project.project_add ),
+                                }],
+                            });
+                            if ( i == contributed_utxos.length - 1 ) console.log( "contribution_txdata:", JSON.stringify( contribution_txdata ) );
+                            var tapleaf = item[ "tapleaf" ];
+                            var script = item[ "script" ];
+                            var cblock = item[ "cblock" ];
+                            var their_key = item[ "contributor_key" ];
+                            var their_sig = contribution_txdata.vin[ index ].witness[ 0 ];
+                            var sighash = await tapscript.Signer.taproot.hash( contribution_txdata, index, { extension: tapleaf, sigflag: 128 | 1 } ).hex;
+                            var isValid = await nobleSecp256k1.schnorr.verify( their_sig.substring( 0, 128 ), sighash, their_key );
+                            var mysig = tapscript.Signer.taproot.sign( btc_sec, contribution_txdata, index, { extension: tapleaf } ).hex;
+                            if ( !isValid ) {
+                                contribution_txdata.vin.splice( i, 1 );
+                                continue;
+                            }
+                            contribution_txdata.vin[ index ].witness.unshift( mysig );
+                            contribution_txdata.vin[ index ].witness.push( script, cblock );
+                        }
+                        var txhex = tapscript.Tx.encode( contribution_txdata ).hex;
+                        console.log( txhex );
+                        return showModal( `<p>You received ${total_friendly} ${total_ending} total. ${amt_in_reversible_pledges_friendly} ${amt_in_reversible_pledges_ending} of that is in smart contracts and the remainder (${remainder_friendly} ${remainder_ending}) was sent to you directly. Given that you can only withdraw in increments of 1% above your goal, you have two options to withdraw your funds (btw both of the following options account for mining fees): you can withdraw ${next_level_friendly} ${next_level_ending} by contributing ${deposit_for_next_level_friendly} ${deposit_for_next_level_ending} to your own fundraiser, or, if that doesn't seem like a good option to you, you can pay a fee of ${extra_friendly} ${extra_ending}. That will give you enough to withdraw ${current_level_friendly} ${current_level_ending}, but you'll be overpaying your mining fee by ${overpayment_friendly} ${overpayment_ending}.</p><p>What do you want to do?</p><p><button onclick="specialDeposit( ${deposit_for_next_level}, ${next_level} )">Deposit ${deposit_for_next_level_friendly} ${deposit_for_next_level_ending}</button></p><p><button onclick="showModal( 'Broadcast this: ${txhex}' )">Withdraw now</button></p>` );
+                    }
+
+                    // scen_2 = Enough in reversible for level X + fees (and there is an X + 1) AND there is NO money in irreversible (1001 & 1101) <-- the first of those is impossible so it is really just 1101
+                    //     -- two options: (1) contribute enough to pay for level X + 1 + fees (2) pay for level X + fees (and possibly overpay fees)
+                    var scen_2 = ( amt_in_reversible_pledges >= levels[ current_level ] + mining_fee_with_no_extra_input && current_level < levels.length - 1 && !some_money_in_irreversible && !we_are_in_scen_9 && !we_are_in_scen_10 );
+
+                    if ( scen_2 ) {
+                        //goal: 200_000 aka 0.002 btc reversible: 221_000 total: 221_000
+                        console.log( "scenario 2: amt_in_reversible_pledges", 680_000_000, "and total", 680_000_000 );
+                        var i; for ( i=0; i<contributed_utxos.length; i++ ) {
+                            var item = contributed_utxos[ i ];
+                            var index = i;
+                            var input = {
+                                txid: item[ "txid" ],
+                                vout: item[ "vout" ],
+                                prevout: {
+                                    value: item[ "value" ],
+                                    scriptPubKey: tapscript.Address.toScriptPubKey( item[ "address" ] ),
+                                }
+                            }
+                            if ( `num_${levels[ current_level ]}` in item[ "levels_with_valid_sig" ] ) var sig = item[ "levels_with_valid_sig" ][ `num_${levels[ current_level ]}` ];
+                            else continue;
+                            input.witness = [ sig ];
+                            inputs.push( input );
+                            var contribution_txdata = tapscript.Tx.create({
+                                vin: inputs,
+                                vout: [{
+                                    value: levels[ current_level ],
+                                    scriptPubKey: tapscript.Address.toScriptPubKey( project.project_add ),
+                                }],
+                            });
+                            if ( i == contributed_utxos.length - 1 ) console.log( "contribution_txdata:", JSON.stringify( contribution_txdata ) );
+                            var tapleaf = item[ "tapleaf" ];
+                            var script = item[ "script" ];
+                            var cblock = item[ "cblock" ];
+                            var their_key = item[ "contributor_key" ];
+                            var their_sig = contribution_txdata.vin[ index ].witness[ 0 ];
+                            var sighash = await tapscript.Signer.taproot.hash( contribution_txdata, index, { extension: tapleaf, sigflag: 128 | 1 } ).hex;
+                            var isValid = await nobleSecp256k1.schnorr.verify( their_sig.substring( 0, 128 ), sighash, their_key );
+                            var mysig = tapscript.Signer.taproot.sign( btc_sec, contribution_txdata, index, { extension: tapleaf } ).hex;
+                            if ( !isValid ) {
+                                contribution_txdata.vin.splice( i, 1 );
+                                continue;
+                            }
+                            contribution_txdata.vin[ index ].witness.unshift( mysig );
+                            contribution_txdata.vin[ index ].witness.push( script, cblock );
+                        }
+                        var txhex = tapscript.Tx.encode( contribution_txdata ).hex;
+                        console.log( txhex );
+                        return showModal( `<p>You received ${total_friendly} ${total_ending} total. Given that you can only withdraw in increments of 1% above your goal, you have two options to withdraw your funds (btw both of the following options account for mining fees): you can withdraw ${next_level_friendly} ${next_level_ending} by contributing ${deposit_for_next_level_friendly} ${deposit_for_next_level_ending} to your own fundraiser, or, if that doesn't seem like a good option to you, you can pay a fee of ${extra_friendly} ${extra_ending}. That will give you enough to withdraw ${current_level_friendly} ${current_level_ending}, but you'll be overpaying your mining fee by ${overpayment_friendly} ${overpayment_ending}.</p><p>What do you want to do?</p><p><button onclick="specialDeposit( ${deposit_for_next_level}, ${next_level} )">Deposit ${deposit_for_next_level_friendly} ${deposit_for_next_level_ending}</button></p><p><button onclick="showModal( 'Broadcast this: ${txhex}' )">Withdraw now</button></p>` );
+                    }
+
+                    // scen_3 = Enough in reversible for level X + fees (and there is no X + 1) AND there is some money in irreversible (1010 & 1110)
+                    //     -- one option: (1) pay for level X + fees (and possibly overpay fees)
+                    var scen_3 = ( amt_in_reversible_pledges >= levels[ current_level ] + mining_fee_with_no_extra_input && current_level >= levels.length - 1 && some_money_in_irreversible && !we_are_in_scen_9 && !we_are_in_scen_10 );
+
+                    if ( scen_3 ) {
+                        console.log( "scenario 3: amt_in_reversible_pledges", 71_000_000_000, "and total", 81_000_000_000 );
+                        var i; for ( i=0; i<contributed_utxos.length; i++ ) {
+                            var item = contributed_utxos[ i ];
+                            var index = i;
+                            var input = {
+                                txid: item[ "txid" ],
+                                vout: item[ "vout" ],
+                                prevout: {
+                                    value: item[ "value" ],
+                                    scriptPubKey: tapscript.Address.toScriptPubKey( item[ "address" ] ),
+                                }
+                            }
+                            if ( `num_${levels[ current_level ]}` in item[ "levels_with_valid_sig" ] ) var sig = item[ "levels_with_valid_sig" ][ `num_${levels[ current_level ]}` ];
+                            else continue;
+                            input.witness = [ sig ];
+                            inputs.push( input );
+                            var contribution_txdata = tapscript.Tx.create({
+                                vin: inputs,
+                                vout: [{
+                                    value: levels[ current_level ],
+                                    scriptPubKey: tapscript.Address.toScriptPubKey( project.project_add ),
+                                }],
+                            });
+                            if ( i == contributed_utxos.length - 1 ) console.log( "contribution_txdata:", JSON.stringify( contribution_txdata ) );
+                            var tapleaf = item[ "tapleaf" ];
+                            var script = item[ "script" ];
+                            var cblock = item[ "cblock" ];
+                            var their_key = item[ "contributor_key" ];
+                            var their_sig = contribution_txdata.vin[ index ].witness[ 0 ];
+                            var sighash = await tapscript.Signer.taproot.hash( contribution_txdata, index, { extension: tapleaf, sigflag: 128 | 1 } ).hex;
+                            var isValid = await nobleSecp256k1.schnorr.verify( their_sig.substring( 0, 128 ), sighash, their_key );
+                            var mysig = tapscript.Signer.taproot.sign( btc_sec, contribution_txdata, index, { extension: tapleaf } ).hex;
+                            if ( !isValid ) {
+                                contribution_txdata.vin.splice( i, 1 );
+                                continue;
+                            }
+                            contribution_txdata.vin[ index ].witness.unshift( mysig );
+                            contribution_txdata.vin[ index ].witness.push( script, cblock );
+                        }
+                        var txhex = tapscript.Tx.encode( contribution_txdata ).hex;
+                        console.log( txhex );
+                        return showModal( `<p>You received ${total_friendly} ${total_ending} total. Due to the way semaphore is coded, you can only withdraw up to 10x your goal, so you can only withdraw ${current_level_friendly} ${current_level_ending}, and the remainder (${remainder_if_exeeding_10x_friendly} ${remainder_if_exeeding_10x_ending}) will go to miners as fees.</p><p><button onclick="showModal( 'Broadcast this: ${txhex}' )">Ok, withdraw now</button></p>` );
+                    }
+
+                    // scen_4 = Enough in reversible for level X + fees (and there is no X + 1) AND there is NO money in irreversible (1011 & 1111)
+                    //     -- one option: (1) pay for level X + fees (and possibly overpay fees)
+                    var scen_4 = ( amt_in_reversible_pledges >= levels[ current_level ] + mining_fee_with_no_extra_input && current_level >= levels.length - 1 && !some_money_in_irreversible && !we_are_in_scen_9 && !we_are_in_scen_10 );
+
+                    if ( scen_4 ) {
+                        console.log( "scenario 4: amt_in_reversible_pledges", 71_000_000_000, "and total", 71_000_000_000 );
+                        var i; for ( i=0; i<contributed_utxos.length; i++ ) {
+                            var item = contributed_utxos[ i ];
+                            var index = i;
+                            var input = {
+                                txid: item[ "txid" ],
+                                vout: item[ "vout" ],
+                                prevout: {
+                                    value: item[ "value" ],
+                                    scriptPubKey: tapscript.Address.toScriptPubKey( item[ "address" ] ),
+                                }
+                            }
+                            if ( `num_${levels[ current_level ]}` in item[ "levels_with_valid_sig" ] ) var sig = item[ "levels_with_valid_sig" ][ `num_${levels[ current_level ]}` ];
+                            else continue;
+                            input.witness = [ sig ];
+                            inputs.push( input );
+                            var contribution_txdata = tapscript.Tx.create({
+                                vin: inputs,
+                                vout: [{
+                                    value: levels[ current_level ],
+                                    scriptPubKey: tapscript.Address.toScriptPubKey( project.project_add ),
+                                }],
+                            });
+                            if ( i == contributed_utxos.length - 1 ) console.log( "contribution_txdata:", JSON.stringify( contribution_txdata ) );
+                            var tapleaf = item[ "tapleaf" ];
+                            var script = item[ "script" ];
+                            var cblock = item[ "cblock" ];
+                            var their_key = item[ "contributor_key" ];
+                            var their_sig = contribution_txdata.vin[ index ].witness[ 0 ];
+                            var sighash = await tapscript.Signer.taproot.hash( contribution_txdata, index, { extension: tapleaf, sigflag: 128 | 1 } ).hex;
+                            var isValid = await nobleSecp256k1.schnorr.verify( their_sig.substring( 0, 128 ), sighash, their_key );
+                            var mysig = tapscript.Signer.taproot.sign( btc_sec, contribution_txdata, index, { extension: tapleaf } ).hex;
+                            if ( !isValid ) {
+                                contribution_txdata.vin.splice( i, 1 );
+                                continue;
+                            }
+                            contribution_txdata.vin[ index ].witness.unshift( mysig );
+                            contribution_txdata.vin[ index ].witness.push( script, cblock );
+                        }
+                        var txhex = tapscript.Tx.encode( contribution_txdata ).hex;
+                        console.log( txhex );
+                        return showModal( `<p>You received ${total_friendly} ${total_ending} total. Due to the way semaphore is coded, you can only withdraw up to 10x your goal, so you can only withdraw ${current_level_friendly} ${current_level_ending}, and the remainder (${remainder_if_exeeding_10x_friendly} ${remainder_if_exeeding_10x_ending}) will go to miners as fees.</p><p><button onclick="showModal( 'Broadcast this: ${txhex}' )">Ok, withdraw now</button></p>` );
+                    }
+
+                    // scen_5 = Enough in reversible for level X (where X > 0 and there is an X + 1) BUT not enough to pay for level X plus fees DOUBLE BUT there is some money in irreversible (0110)
+                    //     -- three options: (1) contribute enough to pay for level X + fees (and remind user they can take some of this from irreversible) (2) contribute enough to pay for level X + 1 + fees (and remind user they can take some of this from irreversible) (3) step down a level (and possibly overpay fees)
+                    var scen_5 = ( amt_in_reversible_pledges >= levels[ current_level ] && amt_in_reversible_pledges < levels[ current_level ] + mining_fee_with_no_extra_input && current_level > 0 && current_level < levels.length - 1 && some_money_in_irreversible && !we_are_in_scen_9 && !we_are_in_scen_10 );
+
+                    if ( scen_5 ) {
+                        console.log( "scenario 5: amt_in_reversible_pledges", 606_000_020, "and total", 700_000_020 );
+                        var i; for ( i=0; i<contributed_utxos.length; i++ ) {
+                            var item = contributed_utxos[ i ];
+                            var index = i;
+                            var input = {
+                                txid: item[ "txid" ],
+                                vout: item[ "vout" ],
+                                prevout: {
+                                    value: item[ "value" ],
+                                    scriptPubKey: tapscript.Address.toScriptPubKey( item[ "address" ] ),
+                                }
+                            }
+                            if ( `num_${levels[ index_of_amount_i_can_withdraw_if_i_must_step_down ]}` in item[ "levels_with_valid_sig" ] ) var sig = item[ "levels_with_valid_sig" ][ `num_${levels[ index_of_amount_i_can_withdraw_if_i_must_step_down ]}` ];
+                            else continue;
+                            input.witness = [ sig ];
+                            inputs.push( input );
+                            var contribution_txdata = tapscript.Tx.create({
+                                vin: inputs,
+                                vout: [{
+                                    value: levels[ index_of_amount_i_can_withdraw_if_i_must_step_down ],
+                                    scriptPubKey: tapscript.Address.toScriptPubKey( project.project_add ),
+                                }],
+                            });
+                            if ( i == contributed_utxos.length - 1 ) console.log( "contribution_txdata:", JSON.stringify( contribution_txdata ) );
+                            var tapleaf = item[ "tapleaf" ];
+                            var script = item[ "script" ];
+                            var cblock = item[ "cblock" ];
+                            var their_key = item[ "contributor_key" ];
+                            var their_sig = contribution_txdata.vin[ index ].witness[ 0 ];
+                            var sighash = await tapscript.Signer.taproot.hash( contribution_txdata, index, { extension: tapleaf, sigflag: 128 | 1 } ).hex;
+                            var isValid = await nobleSecp256k1.schnorr.verify( their_sig.substring( 0, 128 ), sighash, their_key );
+                            var mysig = tapscript.Signer.taproot.sign( btc_sec, contribution_txdata, index, { extension: tapleaf } ).hex;
+                            if ( !isValid ) {
+                                contribution_txdata.vin.splice( i, 1 );
+                                continue;
+                            }
+                            contribution_txdata.vin[ index ].witness.unshift( mysig );
+                            contribution_txdata.vin[ index ].witness.push( script, cblock );
+                        }
+                        var txhex = tapscript.Tx.encode( contribution_txdata ).hex;
+                        console.log( txhex );
+                        return showModal( `<p>You received ${total_friendly} ${total_ending} total. ${amt_in_reversible_pledges_friendly} ${amt_in_reversible_pledges_ending} of that is in smart contracts and the remainder (${remainder_friendly} ${remainder_ending}) was sent to you directly. Given that you can only withdraw in increments of 1% above your goal AND you don't have enough to pay mining fees for your current goal, you have three options to withdraw your funds (btw all of the following options account for mining fees): (1) you can withdraw ${current_level_friendly} ${current_level_ending} by contributing ${deposit_for_current_level_friendly} ${deposit_for_current_level_ending} to your own fundraiser to pay for mining fees, (2) you can withdraw ${next_level_friendly} ${next_level_ending} by contributing ${deposit_for_next_level_friendly} ${deposit_for_next_level_ending} to your own fundraiser, or, if neither of those seem like good options to you, you can withdraw what you have right now and use part of it to pay the mining fee. But if you withdraw now, the fee will be ${more_extra_friendly} ${more_extra_ending} -- enough to withdraw ${amount_i_can_withdraw_if_i_must_step_down_friendly} ${amount_i_can_withdraw_if_i_must_step_down_ending}, but it's a fee *overpayment* of ${more_overpayment_friendly} ${more_overpayment_ending}.</p><p>What do you want to do?</p><p><button onclick="specialDeposit( ${deposit_for_current_level}, ${current_level} )">Deposit ${deposit_for_current_level_friendly} ${deposit_for_current_level_ending}</button></p><p><button onclick="specialDeposit( ${deposit_for_next_level}, ${next_level} )">Deposit ${deposit_for_next_level_friendly} ${deposit_for_next_level_ending}</button></p><p><button onclick="showModal( 'Broadcast this: ${txhex}' )">Withdraw now</button></p>` );
+                    }
+
+                    // scen_6 = Enough in reversible for level X (where X > 0 and there is an X + 1) BUT not enough to pay for level X plus fees AND there is no money in irreversible (0111)
+                    //     -- three options: (1) contribute enough to pay for level X + fees (and DO NOT say they can take some of this from irreversible) (2) contribute enough to pay for level X + 1 + fees (and DO NOT say they can take some of this from irreversible) (3) step down a level (and possibly overpay fees)
+                    var scen_6 = ( amt_in_reversible_pledges >= levels[ current_level ] && amt_in_reversible_pledges < levels[ current_level ] + mining_fee_with_no_extra_input && current_level > 0 && current_level < levels.length - 1 && !some_money_in_irreversible && !we_are_in_scen_9 && !we_are_in_scen_10 );
+
+                    if ( scen_6 ) {
+                        console.log( "scenario 6: amt_in_reversible_pledges", 606_000_020, "and total", 606_000_020 );
+                        var i; for ( i=0; i<contributed_utxos.length; i++ ) {
+                            var item = contributed_utxos[ i ];
+                            var index = i;
+                            var input = {
+                                txid: item[ "txid" ],
+                                vout: item[ "vout" ],
+                                prevout: {
+                                    value: item[ "value" ],
+                                    scriptPubKey: tapscript.Address.toScriptPubKey( item[ "address" ] ),
+                                }
+                            }
+                            if ( `num_${levels[ index_of_amount_i_can_withdraw_if_i_must_step_down ]}` in item[ "levels_with_valid_sig" ] ) var sig = item[ "levels_with_valid_sig" ][ `num_${levels[ index_of_amount_i_can_withdraw_if_i_must_step_down ]}` ];
+                            else continue;
+                            input.witness = [ sig ];
+                            inputs.push( input );
+                            var contribution_txdata = tapscript.Tx.create({
+                                vin: inputs,
+                                vout: [{
+                                    value: levels[ index_of_amount_i_can_withdraw_if_i_must_step_down ],
+                                    scriptPubKey: tapscript.Address.toScriptPubKey( project.project_add ),
+                                }],
+                            });
+                            if ( i == contributed_utxos.length - 1 ) console.log( "contribution_txdata:", JSON.stringify( contribution_txdata ) );
+                            var tapleaf = item[ "tapleaf" ];
+                            var script = item[ "script" ];
+                            var cblock = item[ "cblock" ];
+                            var their_key = item[ "contributor_key" ];
+                            var their_sig = contribution_txdata.vin[ index ].witness[ 0 ];
+                            var sighash = await tapscript.Signer.taproot.hash( contribution_txdata, index, { extension: tapleaf, sigflag: 128 | 1 } ).hex;
+                            var isValid = await nobleSecp256k1.schnorr.verify( their_sig.substring( 0, 128 ), sighash, their_key );
+                            var mysig = tapscript.Signer.taproot.sign( btc_sec, contribution_txdata, index, { extension: tapleaf } ).hex;
+                            if ( !isValid ) {
+                                contribution_txdata.vin.splice( i, 1 );
+                                continue;
+                            }
+                            contribution_txdata.vin[ index ].witness.unshift( mysig );
+                            contribution_txdata.vin[ index ].witness.push( script, cblock );
+                        }
+                        var txhex = tapscript.Tx.encode( contribution_txdata ).hex;
+                        console.log( txhex );
+                        return showModal( `<p>You received ${total_friendly} ${total_ending} total. Given that you can only withdraw in increments of 1% above your goal AND you don't have enough to pay mining fees for your current goal, you have three options to withdraw your funds (btw all of the following options account for mining fees): (1) you can withdraw ${current_level_friendly} ${current_level_ending} by contributing ${deposit_for_current_level_friendly} ${deposit_for_current_level_ending} to your own fundraiser to pay for mining fees, (2) you can withdraw ${next_level_friendly} ${next_level_ending} by contributing ${deposit_for_next_level_friendly} ${deposit_for_next_level_ending} to your own fundraiser, or, if neither of those seem like good options to you, you can withdraw what you have right now and use part of it to pay the mining fee. But if you withdraw now, the fee will be ${more_extra_friendly} ${more_extra_ending} -- enough to withdraw ${amount_i_can_withdraw_if_i_must_step_down_friendly} ${amount_i_can_withdraw_if_i_must_step_down_ending}, but it's a fee *overpayment* of ${more_overpayment_friendly} ${more_overpayment_ending}.</p><p>What do you want to do?</p><p><button onclick="specialDeposit( ${deposit_for_current_level}, ${current_level}, ${levels} )">Deposit ${deposit_for_current_level_friendly} ${deposit_for_current_level_ending}</button></p><p><button onclick="specialDeposit( ${deposit_for_next_level}, ${next_level} )">Deposit ${deposit_for_next_level_friendly} ${deposit_for_next_level_ending}</button></p><p><button onclick="showModal( 'Broadcast this: ${txhex}' )">Withdraw now</button></p>` );
+                    }
+
+                    // scen_7 = Enough in reversible for level X (where X > 0 and there is NO X + 1) BUT not enough to pay for level X plus fees DOUBLE BUT there is some money in irreversible (0100)
+                    //     -- two options: (1) contribute enough to pay for level X + fees (and remind user they can take some of this from irreversible) (2) step down a level (and possibly overpay fees)
+                    var scen_7 = ( amt_in_reversible_pledges >= levels[ current_level ] && amt_in_reversible_pledges < levels[ current_level ] + mining_fee_with_no_extra_input && current_level > 0 && current_level == levels.length - 1 && some_money_in_irreversible && !we_are_in_scen_9 && !we_are_in_scen_10 );
+
+                    if ( scen_7 ) {
+                        console.log( "scenario 7: amt_in_reversible_pledges", 6_000_000_020, "and total", 6_000_000_120 );
+                        var i; for ( i=0; i<contributed_utxos.length; i++ ) {
+                            var item = contributed_utxos[ i ];
+                            var index = i;
+                            var input = {
+                                txid: item[ "txid" ],
+                                vout: item[ "vout" ],
+                                prevout: {
+                                    value: item[ "value" ],
+                                    scriptPubKey: tapscript.Address.toScriptPubKey( item[ "address" ] ),
+                                }
+                            }
+                            if ( `num_${levels[ index_of_amount_i_can_withdraw_if_i_must_step_down ]}` in item[ "levels_with_valid_sig" ] ) var sig = item[ "levels_with_valid_sig" ][ `num_${levels[ index_of_amount_i_can_withdraw_if_i_must_step_down ]}` ];
+                            else continue;
+                            input.witness = [ sig ];
+                            inputs.push( input );
+                            var contribution_txdata = tapscript.Tx.create({
+                                vin: inputs,
+                                vout: [{
+                                    value: levels[ index_of_amount_i_can_withdraw_if_i_must_step_down ],
+                                    scriptPubKey: tapscript.Address.toScriptPubKey( project.project_add ),
+                                }],
+                            });
+                            if ( i == contributed_utxos.length - 1 ) console.log( "contribution_txdata:", JSON.stringify( contribution_txdata ) );
+                            var tapleaf = item[ "tapleaf" ];
+                            var script = item[ "script" ];
+                            var cblock = item[ "cblock" ];
+                            var their_key = item[ "contributor_key" ];
+                            var their_sig = contribution_txdata.vin[ index ].witness[ 0 ];
+                            var sighash = await tapscript.Signer.taproot.hash( contribution_txdata, index, { extension: tapleaf, sigflag: 128 | 1 } ).hex;
+                            var isValid = await nobleSecp256k1.schnorr.verify( their_sig.substring( 0, 128 ), sighash, their_key );
+                            var mysig = tapscript.Signer.taproot.sign( btc_sec, contribution_txdata, index, { extension: tapleaf } ).hex;
+                            if ( !isValid ) {
+                                contribution_txdata.vin.splice( i, 1 );
+                                continue;
+                            }
+                            contribution_txdata.vin[ index ].witness.unshift( mysig );
+                            contribution_txdata.vin[ index ].witness.push( script, cblock );
+                        }
+                        var txhex = tapscript.Tx.encode( contribution_txdata ).hex;
+                        console.log( txhex );
+                        return showModal( `<p>You received ${total_friendly} ${total_ending} total. ${amt_in_reversible_pledges_friendly} ${amt_in_reversible_pledges_ending} of that is in smart contracts and the remainder (${remainder_friendly} ${remainder_ending}) was sent to you directly. Given that you can only withdraw in increments of 1% above your goal, you have two options to withdraw your funds (btw both of the following options account for mining fees): you can withdraw ${current_level_friendly} ${current_level_ending} by contributing ${deposit_for_current_level_friendly} ${deposit_for_current_level_ending} to your own fundraiser to pay for mining fees, or, if that doesn't seem like a good option to you, you can pay a fee of ${more_extra_friendly} ${more_extra_ending}. That will give you enough to withdraw ${amount_i_can_withdraw_if_i_must_step_down_friendly} ${amount_i_can_withdraw_if_i_must_step_down_ending}, but you'll be overpaying your mining fee by ${more_overpayment_friendly} ${more_overpayment_ending}.</p><p>What do you want to do?</p><p><button onclick="specialDeposit( ${deposit_for_current_level}, ${current_level} )">Deposit ${deposit_for_current_level_friendly} ${deposit_for_current_level_ending}</button></p><p><button onclick="showModal( 'Broadcast this: ${txhex}' )">Withdraw now</button></p>` );
+                    }
+
+                    // scen_8 = Enough in reversible for level X (where X > 0 and there is NO X + 1) but not enough to pay for level X plus fees AND there is no money in irreversible (0101)
+                    //     -- two options: (1) contribute enough to pay for level X + fees (and DO NOT say they can take some of this from irreversible) (2) step down a level (and possibly overpay fees)
+                    var scen_8 = ( amt_in_reversible_pledges >= levels[ current_level ] && amt_in_reversible_pledges < levels[ current_level ] + mining_fee_with_no_extra_input && current_level > 0 && current_level == levels.length - 1 && !some_money_in_irreversible && !we_are_in_scen_9 && !we_are_in_scen_10 );
+
+                    if ( scen_8 ) {
+                        console.log( "scenario 8: amt_in_reversible_pledges", 6_000_000_020, "and total", 6_000_000_020 );
+                        var i; for ( i=0; i<contributed_utxos.length; i++ ) {
+                            var item = contributed_utxos[ i ];
+                            var index = i;
+                            var input = {
+                                txid: item[ "txid" ],
+                                vout: item[ "vout" ],
+                                prevout: {
+                                    value: item[ "value" ],
+                                    scriptPubKey: tapscript.Address.toScriptPubKey( item[ "address" ] ),
+                                }
+                            }
+                            if ( `num_${levels[ index_of_amount_i_can_withdraw_if_i_must_step_down ]}` in item[ "levels_with_valid_sig" ] ) var sig = item[ "levels_with_valid_sig" ][ `num_${levels[ index_of_amount_i_can_withdraw_if_i_must_step_down ]}` ];
+                            else continue;
+                            input.witness = [ sig ];
+                            inputs.push( input );
+                            var contribution_txdata = tapscript.Tx.create({
+                                vin: inputs,
+                                vout: [{
+                                    value: levels[ index_of_amount_i_can_withdraw_if_i_must_step_down ],
+                                    scriptPubKey: tapscript.Address.toScriptPubKey( project.project_add ),
+                                }],
+                            });
+                            if ( i == contributed_utxos.length - 1 ) console.log( "contribution_txdata:", JSON.stringify( contribution_txdata ) );
+                            var tapleaf = item[ "tapleaf" ];
+                            var script = item[ "script" ];
+                            var cblock = item[ "cblock" ];
+                            var their_key = item[ "contributor_key" ];
+                            var their_sig = contribution_txdata.vin[ index ].witness[ 0 ];
+                            var sighash = await tapscript.Signer.taproot.hash( contribution_txdata, index, { extension: tapleaf, sigflag: 128 | 1 } ).hex;
+                            var isValid = await nobleSecp256k1.schnorr.verify( their_sig.substring( 0, 128 ), sighash, their_key );
+                            var mysig = tapscript.Signer.taproot.sign( btc_sec, contribution_txdata, index, { extension: tapleaf } ).hex;
+                            if ( !isValid ) {
+                                contribution_txdata.vin.splice( i, 1 );
+                                continue;
+                            }
+                            contribution_txdata.vin[ index ].witness.unshift( mysig );
+                            contribution_txdata.vin[ index ].witness.push( script, cblock );
+                        }
+                        var txhex = tapscript.Tx.encode( contribution_txdata ).hex;
+                        console.log( txhex );
+                        return showModal( `<p>You received ${total_friendly} ${total_ending} total. Given that you can only withdraw in increments of 1% above your goal, you have two options to withdraw your funds (btw both of the following options account for mining fees): you can withdraw ${current_level_friendly} ${current_level_ending} by contributing ${deposit_for_current_level_friendly} ${deposit_for_current_level_ending} to your own fundraiser to pay for mining fees, or, if that doesn't seem like a good option to you, you can pay a fee of ${more_extra_friendly} ${more_extra_ending}. That will give you enough to withdraw ${amount_i_can_withdraw_if_i_must_step_down_friendly} ${amount_i_can_withdraw_if_i_must_step_down_ending}, but you'll be overpaying your mining fee by ${more_overpayment_friendly} ${more_overpayment_ending}.</p><p>What do you want to do?</p><p><button onclick="specialDeposit( ${deposit_for_current_level}, ${current_level} )">Deposit ${deposit_for_current_level_friendly} ${deposit_for_current_level_ending}</button></p><p><button onclick="showModal( 'Broadcast this: ${txhex}' )">Withdraw now</button></p>` );
+                    }
+
+                    // scen_9 = Enough in reversible for level X (where X == 0) but not enough to pay for level X plus fees DOUBLE BUT there is some money in irreversible (0000 & 0010) <-- the first of those is impossible so it is really just 0010
+                    //     -- two options: (1) contribute enough to pay for level X + fees (and remind user they can take some of this from irreversible) (2) contribute enough to pay for level X + 1 + fees (and remind user they can take some of this from irreversible)
+                    var scen_9 = ( we_are_in_scen_9 || ( amt_in_reversible_pledges >= levels[ current_level ] && amt_in_reversible_pledges < levels[ current_level ] + mining_fee_with_no_extra_input && current_level == 0 && some_money_in_irreversible ) );
+
+                    if ( scen_9 ) {
+                        console.log( "scenario 9: amt_in_reversible_pledges", 600_000_020, "and total", 600_000_120 );
+                        return showModal( `<p>You received ${total_friendly} ${total_ending} total. ${amt_in_reversible_pledges_friendly} ${amt_in_reversible_pledges_ending} of that is in smart contracts and the remainder (${remainder_friendly} ${remainder_ending}) was sent to you directly. Given that you can only withdraw in increments of 1% above your goal AND you don't have enough to pay mining fees for your current goal, you have two options to withdraw your funds (btw both of the following options account for mining fees): you can withdraw ${current_level_friendly} ${current_level_ending} by contributing ${deposit_for_current_level_friendly} ${deposit_for_current_level_ending} to your own fundraiser to pay for mining fees, or you can withdraw ${next_level_friendly} ${next_level_ending} by contributing ${deposit_for_next_level_friendly} ${deposit_for_next_level_ending} to your own fundraiser.</p><p>What do you want to do?</p><p><button onclick="specialDeposit( ${deposit_for_current_level}, ${current_level}, ${levels} )">Deposit ${deposit_for_current_level_friendly} ${deposit_for_current_level_ending}</button></p><p><button onclick="specialDeposit( ${deposit_for_next_level}, ${next_level} )">Deposit ${deposit_for_next_level_friendly} ${deposit_for_next_level_ending}</button></p>` );
+                    }
+
+                    // scen_10 = Enough in reversible for level X (where X == 0) but not enough to pay for level X plus fees AND there is no money in irreversible (0001 & 0011) <-- the first of those is impossible so it is really just 0011
+                    //     -- two options: (1) contribute enough to pay for level X + 1 + fees (and DO NOT say they can take some of this from irreversible) (2) contribute enough to pay for level X + fees (and DO NOT say they can take some of this from irreversible)
+                    var scen_10 = ( we_are_in_scen_10 || ( amt_in_reversible_pledges >= levels[ current_level ] && amt_in_reversible_pledges < levels[ current_level ] + mining_fee_with_no_extra_input && current_level == 0 && !some_money_in_irreversible ) );
+
+                    if ( scen_10 ) {
+                        console.log( "scenario 10: amt_in_reversible_pledges", 600_000_020, "and total", 600_000_020 );
+                        return showModal( `<p>You received ${total_friendly} ${total_ending} total. Given that you can only withdraw in increments of 1% above your goal AND you don't have enough to pay mining fees for your current goal, you have two options to withdraw your funds (btw both of the following options account for mining fees): you can withdraw ${current_level_friendly} ${current_level_ending} by contributing ${deposit_for_current_level_friendly} ${deposit_for_current_level_ending} to your own fundraiser to pay for mining fees, or you can withdraw ${next_level_friendly} ${next_level_ending} by contributing ${deposit_for_next_level_friendly} ${deposit_for_next_level_ending} to your own fundraiser.</p><p>What do you want to do?</p><p><button onclick="specialDeposit( ${deposit_for_current_level}, ${current_level} )">Deposit ${deposit_for_current_level_friendly} ${deposit_for_current_level_ending}</button></p><p><button onclick="specialDeposit( ${deposit_for_next_level}, ${next_level} )">Deposit ${deposit_for_next_level_friendly} ${deposit_for_next_level_ending}</button></p>` );
+                    }
+                }
+                checkForUtxos();
+            }
+            function modalVanish() {
+                $( ".black-bg" ).classList.add( "hidden" );
+                $( ".modal" ).classList.add( "hidden" );
+            }
+            function showModal( content, block_til_clear ) {
+                if ( block_til_clear ) var fn = `modalVanish();sessionStorage[ 'modal_cleared' ] = true;`; else var fn = `modalVanish();`;
+                $( ".modal" ).innerHTML = `<div class="x_modal" style="position: absolute;right: 1rem;top: 0.5rem;font-size: 2rem; cursor: pointer; color: black;" onclick="${fn}">&times;</div>`;
+                $( ".modal" ).innerHTML += `<div style="overflow-y: auto; max-height: 80vh; margin-top: 1.5rem;">${content}</div>`;
+                $( ".black-bg" ).classList.remove( "hidden" );
+                $( ".modal" ).classList.remove( "hidden" );
+            }
+            var login = () => {
+                showModal( `
+                    <form>
+                        <p style="font-weight: bold;">To log in, upload the backup file you got when you created or contributed to this project</p>
+                        <p><input type="file" onchange="{import_data( this.files[ 0 ] );}" /></p>
+                    </form>
+                ` );
+            }
+            var logout = () => {
+                $( '.login_btn' ).innerText = "Log in";
+                $( '.login_btn' ).onclick = login;
+                window.location.reload();
+            }
+            var import_data = file => {
+                var fileReader = new FileReader();
+                fileReader.onloadend = async () => {
+                    var b64 = fileReader.result.toString().substring( fileReader.result.toString().indexOf( "base64," ) + 7 );
+                    var text = nostr_image_host.hexToText( base64ToHex( b64 ) );
+                    if ( !isValidJson( text ) ) return;
+                    var backed_up_data = JSON.parse( text );
+                    if ( !( "fundraiser_id" in backed_up_data ) ) return alert( `Sorry, that is an invalid file! Try again or ask a developer for assistance` );
+                    if ( $_GET[ "fundraiser" ] && $_GET[ "fundraiser" ] != backed_up_data[ "fundraiser_id" ] ) return showModal( `Sorry, wrong fundraiser! Try again` );
+                    if ( !$_GET[ "fundraiser" ] ) $_GET[ "fundraiser" ] = backed_up_data[ "fundraiser_id" ];
+                    btc_sec = backed_up_data[ "privkey" ];
+                    btc_pub = nobleSecp256k1.getPublicKey( btc_sec, true ).substring( 2 );
+                    if ( socket ) socket.close();
+                    showModal( `reloading page...` );
+                    await loadFundraiser();
+                    await nostr_image_host.waitSomeSeconds( 1 );
+                    setTimeout( () => {if ( $( '.modal' ).innerHTML.includes( "reloading page..." ) && !$( '.modal' ).classList.contains( "hidden" ) ) $( '.x_modal' ).click();}, 2000 );
+                    $( '.login_btn' ).innerText = "Log out";
+                    $( '.login_btn' ).onclick = logout;
+                    if ( $( '.modal' ).innerHTML.includes( "reloading page..." ) && !$( '.modal' ).classList.contains( "hidden" ) ) $( '.x_modal' ).click();
+                }
+                fileReader.readAsDataURL( file );
+            }
+            function base64ToHex(str) {
+                var raw = atob(str);
+                var result = '';
+                var i; for ( i=0; i<raw.length; i++ ) {
+                    var hex = raw.charCodeAt( i ).toString( 16 );
+                    result += hex.length % 2 ? '0' + hex : hex;
+                }
+                return result.toLowerCase();
+            }
+            function isValidJson( content ) {
+                if ( !content ) return;
+                try {  
+                    var json = JSON.parse( content );
+                } catch ( e ) {
+                    return;
+                }
+                return true;
+            }
+            sessionStorage.removeItem( "modal_cleared" );
+            sessionStorage.removeItem( "reversible" );
+            sessionStorage.removeItem( "recovery" );
+            async function getNote( item ) {
+                async function isNoteSetYet( note_i_seek ) {
+                    return new Promise( function( resolve, reject ) {
+                        if ( !note_i_seek ) {
+                            setTimeout( async function() {
+                                var msg = await isNoteSetYet( sessionStorage[ item ] );
+                                resolve( msg );
+                            }, 100 );
+                        } else {
+                            resolve( note_i_seek );
+                        }
+                    });
+                }
+                async function getTimeoutData() {
+                    var note_i_seek = await isNoteSetYet( sessionStorage[ item ] );
+                    return note_i_seek;
+                }
+                var returnable = await getTimeoutData();
+                return returnable;
+            }
+            function convertHMS( value ) {
+                if ( value < 0 ) value = 0;
+                var sec = parseInt(value, 10); // convert value to number if it's string
+                var years = Math.floor(sec / 31536000); // get years
+                var months = Math.floor((sec - (years * 31536000)) / 2592000); // get months
+                var days = Math.floor((sec - (years * 31536000) - (months * 2592000)) / 86400); // get days
+                var hours = Math.floor((sec - (years * 31536000) - (months * 2592000) - (days * 86400)) / 3600); // get hours
+                var minutes = Math.floor((sec - (years * 31536000) - (months * 2592000) - (days * 86400) - (hours * 3600)) / 60); // get minutes
+                var seconds = sec - (years * 31536000) - (months * 2592000) - (days * 86400) - (hours * 3600) - (minutes * 60); //  get seconds
+                var yearsstring = (years != 1) ? `years`:`year`;
+                var monthsstring = (months != 1) ?  `months`:`month`;
+                var daysstring = (days != 1) ? `days`:`day`;
+                var hoursstring = (hours != 1) ? `hours`:`hour`;
+                var minutesstring = (minutes != 1) ? `minutes`:`minute`;
+                var secondsstring = (seconds != 1) ? `seconds`:`second`;
+                if ( years > 0 ) return `${years} ${yearsstring} ${months} ${monthsstring} ${days} ${daysstring} ${hours} ${hoursstring} ${minutes} ${minutesstring} ${seconds} ${secondsstring}`;
+                if ( months > 0 ) return `${months} ${monthsstring} ${days} ${daysstring} ${hours} ${hoursstring} ${minutes} ${minutesstring} ${seconds} ${secondsstring}`;
+                if ( days > 0 ) return `${days} ${daysstring} ${hours} ${hoursstring} ${minutes} ${minutesstring} ${seconds} ${secondsstring}`;
+                if ( hours > 0 ) return `${hours} ${hoursstring} ${minutes} ${minutesstring} ${seconds} ${secondsstring}`;
+                if ( minutes > 0 ) return `${minutes} ${minutesstring} ${seconds} ${secondsstring}`;
+                if ( seconds == 0 ) return `${seconds} seconds`;
+                return `${seconds} ${secondsstring}`;
+            }
+            async function getBlockheight( network ) {
+                var data = await getData( `https://${btc_net}/${network}api/blocks/tip/height` );
+                return Number( data );
+            }
+            var timeloop = async seconds => {
+                var time_left = convertHMS( seconds );
+                if ( $( '.countdown_div' ) && $( '.image_and_name' ) && $( '.image_and_name' ).style.backgroundImage ) {
+                    $( '.login_btn' ).classList.remove( "hidden" );
+                    $( '.project_header' ).classList.remove( "hidden" );
+                    $( '.project_body' ).classList.remove( "hidden" );
+                    $( '.countdown_div' ).innerHTML = `<span class="countdown_label">Fundraiser ends in </span><span class="countdown">loading...</span>`;
+                    $( '.countdown' ).innerText = time_left;
+                }
+                await nostr_image_host.waitSomeSeconds( 1 );
+                timeloop_seconds = seconds - 1;
+                timeloop( timeloop_seconds );
+            }
+            var show_pledge_options = () => {
+                showModal( `
+                    <div>
+                        <p>What kind of pledge do you want to make?</p>
+                        <p><button class="reversibility_button irreversible">Irreversible</button></p>
+                        <p><button class="reversibility_button reversible">Reversible</button></p>
+                        <p><span class="what_are_these" style="color: blue; text-decoration: underline; cursor: pointer;">What are these?</span></p>
+                    </div>
+                `, true );
+                $( '.what_are_these' ).onclick = () => {what_are_these();}
+                $( '.irreversible' ).onclick = () => {showIrreversible();}
+                $( '.reversible' ).onclick = () => {
+                    sessionStorage[ "reversible" ] = true;
+                    sessionStorage[ "modal_cleared" ] = true;
+                }
+            }
+            var what_are_these = () => {
+                showModal( `
+                    <div>
+                        <p><button class="back_btn_1">Back</button></p>
+                        <p>An irreversible pledge sends your money directly to the person or group who made the fundraiser. They get to keep that money even if the fundraiser does not reach its goal.</p><p>A reversible pledge sends your money to a bitcoin smart contract where you may recover it at any time, and the person or group who made the fundraiser can only take it if they reach their goal. Otherwise, this website will attempt to do an automatic refund.</p><p>Automatic refunds are not guaranteed to work, so you will also receive a backup file you can use to unilaterally recover your funds in case the site goes down.</p>
+                        <p><button class="back_btn_2">Back</button></p>
+                    </div>
+                `, true );
+                $( '.back_btn_1' ).onclick = () => {show_pledge_options();}
+                $( '.back_btn_2' ).onclick = () => {show_pledge_options();}
+            }
+            function createQR( content ) {
+                var dataUriPngImage = document.createElement( "img" ),
+                s = QRCode.generatePNG( content, {
+                    ecclevel: "M",
+                    format: "html",
+                    fillcolor: "#FFFFFF",
+                    textcolor: "#000000",
+                    margin: 4,
+                    modulesize: 8,
+                });
+                dataUriPngImage.src = s;
+                dataUriPngImage.className = "qr_code";
+                dataUriPngImage.style.width = "100%";
+                return dataUriPngImage;
+            }
+            var utxoloop = async ( address, original_utxos ) => {
+                var new_utxo;
+                var current_utxos = await getData( `https://${btc_net}/api/address/${address}/utxo` );
+                current_utxos = JSON.parse( current_utxos );
+                if ( current_utxos.length <= original_utxos.length ) {
+                    await nostr_image_host.waitSomeSeconds( 3 );
+                    var new_utxo = await utxoloop( address, original_utxos );
+                    return new_utxo;
+                }
+                var simplified_utxos = [];
+                current_utxos.forEach( item => simplified_utxos.push( `${item[ "txid" ]}:${item[ "vout" ]}:${item[ "value" ]}` ) );
+                simplified_utxos.every( item => {
+                    var simplified_item = [ item.split( ":" )[ 0 ], item.split( ":" )[ 1 ] ].join( ":" );
+                    if ( !current_utxos.includes( simplified_item ) ) return new_utxo = item;
+                    return true;
+                });
+                return new_utxo;
+            }
+            function saveData( data, fileName ) {
+                var a = document.createElement("a");
+                document.body.appendChild(a);
+                a.style = "display: none";
+                var json = JSON.stringify(data);
+                var blob = new Blob([json], {type: "octet/stream"});
+                var url = window.URL.createObjectURL(blob);
+                a.href = url;
+                a.download = fileName;
+                a.click();
+                window.URL.revokeObjectURL(url);
+            }
+            var processContrib = async e => {
+                var [ type, subId, event ] = JSON.parse( e.data );
+                var { kind, content, tags } = event || {}
+                if ( !event || event === true ) return;
+                var json = JSON.parse( content );
+                var fundraiser = project.project_key;
+                if ( !( "fundraiser_id" in json ) ) return;
+                if ( json[ "fundraiser_id" ] != $_GET[ "fundraiser" ] ) return;
+                var utxo_was_spent_in_this_txid_and_vin = false;
+                if ( "contributor_key" in json ) {
+                    var script = [ 0, json[ "contributor_key" ], 'OP_CHECKSIGADD', fundraiser, 'OP_CHECKSIGADD', 2, 'OP_EQUAL' ];
+                    var tapleaf = tapscript.Tap.encodeScript( script );
+                    var [ tpubkey, cblock ] = tapscript.Tap.getPubKey( json[ "contributor_key" ], { target: tapleaf });
+                    var address = tapscript.Address.p2tr.fromPubKey( tpubkey, 'testnet' );
+                    //stop here and do not update the page if the contributor did not contribute anything
+                    // var utxos = await getData( `https://${btc_net}/api/address/${address}/utxo` );
+                    // utxos = JSON.parse( utxos );
+                    // var amt_pledged_by_this_utxo = 0;
+                    // utxos.forEach( item => {
+                    //     if ( item[ "txid" ] == json[ "txid" ] && item[ "vout" ] == json[ "vout" ] ) amt_pledged_by_this_utxo = item[ "value" ];
+                    // });
+                    // if ( !amt_pledged_by_this_utxo ) return;
+                    //stop here and do not update the page if the contributor did not contribute anything
+                    var txinfo = await getData( `https://${btc_net}/api/address/${address}/txs` );
+                    txinfo = JSON.parse( txinfo );
+                    var amt_pledged_by_this_utxo = 0;
+                    txinfo.every( item => {
+                        if (
+                            item[ "txid" ] == json[ "txid" ] &&
+                            item[ "vout" ][ json[ "vout" ] ] && 
+                            item[ "vout" ][ json[ "vout" ] ][ "scriptpubkey_address" ] == address
+                        ) {
+                            amt_pledged_by_this_utxo = item[ "vout" ][ json[ "vout" ] ][ "value" ];
+                            return;
+                        }
+                        return true;
+                    });
+                    if ( !amt_pledged_by_this_utxo ) return;
+                    //stop here and do not update the page if utxo was revoked
+                    var utxo_was_revoked = false;
+                    txinfo.every( item => {
+                        var item_found;
+                        item.vin.every( ( input, index ) => {
+                            if (
+                                input[ "txid" ] == json[ "txid" ] &&
+                                input[ "vout" ] == json[ "vout" ]
+                            ) {
+                                utxo_was_spent_in_this_txid_and_vin = `${item[ "txid" ]}:${index}`;
+                                item_found = true;
+                                if ( input[ "witness" ].length == 1 ) utxo_was_revoked = true;
+                                else funds_spent_cooperatively = true;
+                                return;
+                            }
+                            return true;
+                        });
+                        //the "every" function needs you to return "true" if you haven't found the thing you are looking for
+                        //and "false" if you have. By inverting item_found, I make it return true by default, but if the
+                        //utxo is found to have been spent, it will flip to false, thus exiting the loop
+                        return !item_found;
+                    });
+                    if ( utxo_was_revoked ) return;
+                    //stop here and do not update the page if the sig is invalid
+                    var contribution_txdata = tapscript.Tx.create({
+                        vin: [{
+                            txid: json[ "txid" ],
+                            vout: json[ "vout" ],
+                            prevout: {
+                                value: amt_pledged_by_this_utxo,
+                                scriptPubKey: tapscript.Address.toScriptPubKey( address ),
+                            },
+                        }],
+                        vout: [{
+                            value: project.project_gol,
+                            scriptPubKey: tapscript.Address.toScriptPubKey( project.project_add ),
+                        }],
+                    });
+                    contribution_txdata.vin[ 0 ].witness = [ json[ "main_sigs" ][ 1 ] ];
+                    var sighash = await tapscript.Signer.taproot.hash( contribution_txdata, 0, { extension: tapleaf, sigflag: 128 | 1 } ).hex;
+                    var isValid = await nobleSecp256k1.schnorr.verify( json[ "main_sigs" ][ 1 ].substring( 0, 128 ), sighash, json[ "contributor_key" ] );
+                    if ( !isValid ) return;
+                } else {
+                    var address = project.project_add;
+                    var txinfo = await getData( `https://${btc_net}/api/tx/${json[ "txid" ]}` );
+                    txinfo = JSON.parse( txinfo );
+                    var amt_pledged_by_this_utxo = 0;
+                    txinfo[ "vout" ].forEach( ( item, index ) => {
+                        if ( index == json[ "vout" ] && item[ "scriptpubkey_address" ] == address ) amt_pledged_by_this_utxo = item[ "value" ];
+                    });
+                    if ( !amt_pledged_by_this_utxo ) return;
+                }
+                if ( used_txid_and_vouts.includes( `${json[ "txid" ]}:${json[ "vout" ]}` ) ) return;
+                used_txid_and_vouts.push( `${json[ "txid" ]}:${json[ "vout" ]}` );
+                //autorefund
+                if ( !!json[ "recovery" ] && !!json[ "recovery_fee" ] && lastblock >= project.project_end + 144 ) {
+                    var recovery_txdata = tapscript.Tx.create({
+                        vin: [{
+                            txid: json[ "txid" ],
+                            vout: json[ "vout" ],
+                            sequence: 0xfffffffd,
+                            prevout: {
+                                value: amt_pledged_by_this_utxo,
+                                scriptPubKey: tapscript.Address.toScriptPubKey( address ),
+                            },
+                            witness: [ json[ "main_sigs" ][ 0 ] ],
+                        }],
+                        vout: [{
+                            value: amt_pledged_by_this_utxo - json[ "recovery_fee" ],
+                            scriptPubKey: tapscript.Address.toScriptPubKey( json[ "recovery" ] ),
+                        }],
+                        locktime: project.project_end + 144,
+                    });
+                    var txhex = tapscript.Tx.encode( recovery_txdata ).hex;
+                    //TODO: uncomment the line below
+                    // setTimeout( async () => {var txid = await pushBTCpmt( txhex, "" );console.log( "autorefund attempted!", txid, txhex );}, Math.floor( Math.random() * 1000 ) );
+                } else {
+                    if ( !!json[ "recovery" ] && !!json[ "recovery_fee" ] ) console.log( `no autorefund right now because it is only block ${lastblock} and it needs to be block ${project.project_end + 144} -- which is in ${project.project_end + 144 - lastblock} blocks` );
+                }
+                if ( "contributor_key" in json && !utxo_was_spent_in_this_txid_and_vin ) contributed_utxos.push( { txid: json[ "txid" ], vout: json[ "vout" ], value: amt_pledged_by_this_utxo, address, main_sigs: json[ "main_sigs" ], extra_sigs_id: json[ "extra_sigs_id" ], tapleaf, script, cblock, contributor_key: json[ "contributor_key" ], levels_with_valid_sig: {} } );
+                if ( json[ "contributor_key" ] == btc_pub ) checkForUtxos();
+                var num_of_pledgers = Number( $( '.num_of_pledgers' ).innerText ) + 1;
+                $( '.num_of_pledgers' ).innerText = num_of_pledgers;
+                var total_before_now = $( '.raised' ).innerText.replaceAll( ",", "" );
+                if ( total_before_now.includes( "." ) ) {
+                    var num_of_digits_after_period = total_before_now.substring( total_before_now.indexOf( "." ) + 1 ).length;
+                    var string_of_zeros = "";
+                    var i; for ( i=0; i<8 - num_of_digits_after_period; i++ ) string_of_zeros = string_of_zeros + "0";
+                    total_before_now = total_before_now.replaceAll( ".", "" );
+                    total_before_now = total_before_now + string_of_zeros;
+                }
+                var total_amt_pledged = Number( total_before_now ) + amt_pledged_by_this_utxo;
+                var original_total_amt_pledged = total_amt_pledged;
+                var raised_ending = "SATS";
+                if ( total_amt_pledged > 1000000 ) {
+                    total_amt_pledged = satsToBitcoin( total_amt_pledged );
+                    raised_ending = "BTC";
+                } else {
+                    total_amt_pledged = total_amt_pledged.toLocaleString();
+                }
+                $( '.raised' ).innerText = total_amt_pledged;
+                $( '.raised_ending' ).innerText = raised_ending;
+                var percent_funded = Number( ( ( original_total_amt_pledged / project.project_gol ) * 100 ).toFixed( 2 ) );
+                $( '.percent_funded' ).innerText = percent_funded + "%";
+                var div1 = document.createElement( "div" );
+                var div2 = document.createElement( "div" );
+                var html = `<div class="comment">`;
+                html += `<div class="contrib_div"><span class="contrib"></span></div>`;
+                if ( json[ "public_comment" ] ) html += `<div class="inner_comment_div"><span class="inner_comment"></span></div>`;
+                html += `</div>`;
+                div1.innerHTML = html;
+                div2.innerHTML = html;
+                div1 = div1.firstElementChild;
+                div2 = div2.firstElementChild;
+                var contrib = amt_pledged_by_this_utxo;
+                var contrib_ending = " sats";
+                if ( contrib > 1000000 ) {
+                    contrib = satsToBitcoin( contrib );
+                    contrib_ending = " btc";
+                } else {
+                    contrib = contrib.toLocaleString();
+                }
+                div1.getElementsByClassName( "contrib" )[ 0 ].innerText = contrib + contrib_ending;
+                div2.getElementsByClassName( "contrib" )[ 0 ].innerText = contrib + contrib_ending;
+                if ( json[ "public_comment" ] ) div1.getElementsByClassName( "inner_comment" )[ 0 ].innerText = json[ "public_comment" ].substring( 0, 140 );
+                if ( json[ "public_comment" ] ) div2.getElementsByClassName( "inner_comment" )[ 0 ].innerText = json[ "public_comment" ].substring( 0, 140 );
+                if ( json[ "public_comment" ] ) $( '.column_right' ).append( div1 );
+                if ( json[ "public_comment" ] ) $( '.comments_bottom' ).append( div2 );
+                if ( json[ "public_comment" ] ) $$( '.comments_label' ).forEach( item => item.classList.remove( "hidden" ) );
+            }
+            var getContribs = async () => {
+                var fundraiser = project.project_key;
+                var subId   = nostr_image_host.bytesToHex( nobleSecp256k1.utils.randomPrivateKey() ).substring( 0, 16 );
+                var filter  = { "#p": [ fundraiser ], kinds: [ 62116 ] }
+                var subscription = [ "REQ", subId, filter ];
+                socket.send(JSON.stringify( subscription ));
+            }
+            var loadFundraiser = async () => {
+                $( '.welcome_page' ).classList.add( "hidden" );
+                $( '.project' ).classList.remove( "hidden" );
+                $( '.project' ).innerHTML = '<div class="countdown_div">loading...</div>';
+                var split_b64 = await downloader( $_GET[ "fundraiser" ] );
+                if ( split_b64 == "no good" ) return showModal( `Could not load fundraiser, try again` );
+                project = JSON.parse( atob( split_b64.split( "|---|" )[ 1 ] ) );
+                project[ "project_pic" ] = split_b64.split( "|---|" )[ 0 ];
+                if ( !isValidAddress( project.project_add ) ) return showModal( `Invalid fundraiser due to bad bitcoin address` );
+                //TODO: uncomment the line below
+                // if ( $( '.project_add' ).value.startsWith( "t" ) || $( '.project_add' ).value.startsWith( "r" ) || $( '.project_add' ).value.startsWith( "m" ) || $( '.project_add' ).value.startsWith( "n" ) || $( '.project_add' ).value.startsWith( "2" ) ) return showModal( `Try again with a mainnet bitcoin address` );
+                if ( typeof project.project_gol != "number" ) return showModal( `Invalid fundraiser due to bad goal` );
+                if ( typeof project.project_end != "number" ) return showModal( `Invalid fundraiser due to bad end date` );
+                used_txid_and_vouts = [];
+                contributed_utxos = [];
+                if ( $( '.raised' ) ) {
+                    $( '.raised' ).innerText = 0;
+                    $( '.percent_funded' ).innerText = '0%';
+                    $( '.num_of_pledgers' ).innerText = 0;
+                    $( '.comments_bottom' ).innerHTML = `<p class="comments_label hidden">Comments</p>`;
+                    $( '.column_right' ).innerHTML = `<p class="comments_label hidden">Comments</p>`;
+                }
+                await loadProject( project );
+                var hex_id = nostr_image_host.bech32ToHex( $_GET[ "fundraiser" ] );
+                relay = nostr_image_host.hexToText( hex_id.substring( 64 ) );
+                fundraiser_addy = project.project_add;
+                lastblock = await getBlockheight( "" );
+                socket = new WebSocket( relay );
+                socket.addEventListener( 'message', processContrib );
+                socket.addEventListener( 'open', getContribs );
+            }
+            var spendCoins = async ( destino, sats_per_byte ) => {
+                var script = [ 0, btc_pub, 'OP_CHECKSIGADD', project.project_key, 'OP_CHECKSIGADD', 2, 'OP_EQUAL' ];
+                var tapleaf = tapscript.Tap.encodeScript( script );
+                var [ tseckey_keypath ] = tapscript.Tap.getSecKey( btc_sec, { tree: [script].map( s => tapscript.Tap.encodeScript( s ) ) } );
+                var [ tpubkey, cblock ] = tapscript.Tap.getPubKey( btc_pub, { target: tapleaf });
+                var from_address = tapscript.Address.p2tr.fromPubKey( tpubkey, 'testnet' );
+                var inputs = [];
+                var outputs = [];
+                var from_amount = 0;
+                contributor_utxos.forEach( utxo => {
+                    from_amount = from_amount + utxo[ "value" ];
+                    var txid = utxo[ "txid" ];
+                    var vout = utxo[ "vout" ];
+                    var amount = utxo[ "value" ];
+                    inputs.push({
+                        txid: txid,
+                        vout: vout,
+                        prevout: {
+                            value: amount,
+                            scriptPubKey: tapscript.Address.toScriptPubKey( from_address ),
+                        },
+                    });
+                });
+                //I assume the txsize begins as 4 bytes for the version number, 4
+                //bytes for the locktime, 1 byte for the size of the witness script,
+                //1 byte for the size of the locking script, 1 byte for the size
+                //of the pubkey in the locking script, and 1 byte for OP_0 or OP_1
+                //preceding the output script
+                var txsize = 12;
+                //I calculate that inputs add 65 bytes for the sig, 35 bytes for
+                //the txid, and 5 bytes for the vout (remembering that each one
+                //is preceded by a byte that indicates how long that string is)
+                inputs.forEach( item => txsize = txsize + 65 + 33 + 5 );
+                //I calculate that outputs add 41 bytes apiece by
+                //assuming the average scriptpubkey is 33 bytes
+                //and assuming amounts are denoted in 8 bytes
+                txsize = txsize + 41;
+                var mining_fee = txsize * sats_per_byte;
+                if ( mining_fee < 172 ) mining_fee = 172;
+                var to_amount = from_amount - mining_fee;
+                var there_be_dust = false;
+                outputs.push({
+                    value: to_amount,
+                    scriptPubKey: tapscript.Address.toScriptPubKey( destino ),
+                });
+                if ( to_amount < 546 ) there_be_dust = true;
+                if ( there_be_dust ) return showModal( `You tried to send ${from_amount} sats but the mining fee was ${mining_fee} sats, which leaves a leftover amount of ${to_amount} sats -- lower than bitcoin's dust limit. You cannot send an amount that small. Please make a bigger deposit and try again.` );
+                var txdata = tapscript.Tx.create({
+                    vin  : inputs,
+                    vout : outputs,
+                });
+                contributor_utxos.forEach( ( utxo, index ) => {
+                    var sig = tapscript.Signer.taproot.sign( tseckey_keypath, txdata, index );
+                    txdata.vin[ index ].witness = [ sig ];
+                });
+                var txhex = tapscript.Tx.encode( txdata ).hex;
+                showModal( `<p>Broadcast this:</p><p>${txhex}</p>` );
+                // var txid = await pushBTCpmt( txhex, "" );
+                // if ( txid.includes( "error" ) ) return showModal( `<p>Oh no! There was an error with your transaction, please try again. Here is the error message:</p><p>${txid}</p><p>Hint: usually I get this error when my utxo set is out of date. Give it time to update before trying again. It often takes about 2 minutes and it may say you have 0 sats for a little bit too before it updates.</p>` );
+                // showModal( `Success! Here is your txid: <a href="https://${btc_net}/tx/${txid}" target="_blank">https://${btc_net}/tx/${txid}</a>` );
+            }
+            async function getThreeFeeRates( network ) {
+                var fees = await getData(`https://${btc_net}/` + network + "api/v1/fees/recommended");
+                fees = JSON.parse(fees);
+                var array = [ fees["minimumFee"], fees["hourFee"], fees["fastestFee"] ];
+                return array;
+            }
+            var showIrreversible = async () => {
+                var address = fundraiser_addy;
+                var url = "bitcoin:" + address;
+                var a = document.createElement( "a" );
+                a.href = url;
+                a.target = "_blank";
+                a.append( createQR( url.toUpperCase() ) );
+                var prep_div = document.createElement( "div" );
+                prep_div.append( a );
+                var div_html = prep_div.innerHTML + `<p>${address}</p>`;
+                showModal( div_html );
+                var utxos = await getData( `https://${btc_net}/api/address/${address}/utxo` );
+                utxos = JSON.parse( utxos );
+                var simplified_utxos = [];
+                utxos.forEach( item => simplified_utxos.push( `${item[ "txid" ]}:${item[ "vout" ]}` ) );
+                var new_utxo = await utxoloop( address, simplified_utxos );
+                var txid_vout_amt = new_utxo.split( ":" );
+                var txid = txid_vout_amt[ 0 ];
+                var vout = Number( txid_vout_amt[ 1 ] );
+                var amt = Number( txid_vout_amt[ 2 ] );
+                showModal( `
+                    <p>Someone just contributed ${amt} sats. Was that you?</p><p><button class="yes_was_me" onclick="irreversibleSuccess( '${txid}', '${vout}' );">Yes</button><button class="no_not_me" onclick="showIrreversible();">No</button></p>
+                ` );
+            }
+            var irreversibleSuccess = async ( txid, vout ) => {
+                sessionStorage.removeItem( "modal_cleared" );
+                sessionStorage.removeItem( "comment" );
+                showModal( `
+                    <p style="font-weight: bold;">Pledge detected! Enter a comment to send with it (optional)</p>
+                    <p><input style="max-width: 90%" class="modal_comment"></p>
+                    <p>Chars left: <span class="modal_comment_chars_left">140</span></p>
+                    <p><button class="submit_modal_comment" onclick="sessionStorage[ 'comment' ] = $( '.modal_comment' ).value;sessionStorage[ 'modal_cleared' ] = true;showModal( '<p>loading...</p>' );">Submit</button></p>
+                `, true );
+                $( '.modal_comment' ).onchange = () => {
+                    var text = $( '.modal_comment' ).value;
+                    var limit = 140;
+                    var length = text.length;
+                    if ( limit - length < 0 ) return $( '.modal_comment' ).value = text.substring( 0, limit );
+                    $( '.modal_comment_chars_left' ).innerText = `${limit - length}`;
+                }
+                $( '.modal_comment' ).onkeyup = () => {
+                    var text = $( '.modal_comment' ).value;
+                    var limit = 140;
+                    var length = text.length;
+                    if ( limit - length < 0 ) return $( '.modal_comment' ).value = text.substring( 0, limit );
+                    $( '.modal_comment_chars_left' ).innerText = `${limit - length}`;
+                }
+                await getNote( "modal_cleared" );
+                var comment = await getNote( "comment" );
+                sessionStorage.removeItem( "comment" );
+                var privKey = nostr_image_host.bytesToHex( nobleSecp256k1.utils.randomPrivateKey() );
+                var pubKey = nobleSecp256k1.getPublicKey( privKey, true ).substring( 2 );
+                var note = JSON.stringify({
+                    fundraiser_id: $_GET[ "fundraiser" ],
+                    txid,
+                    vout,
+                    public_comment: comment,
+                });
+                if ( socket.readyState != 1 ) {
+                    socket = new WebSocket( relay );
+                    socket.addEventListener('open', async function() {
+                        var event = {
+                            "content"    : note,
+                            "created_at" : Math.floor( Date.now() / 1000 ),
+                            "kind"       : 62116,
+                            "tags"       : [ [ "p", project.project_key ] ],
+                            "pubkey"     : pubKey,
+                        }
+                        var signedEvent = await nostr_image_host.getSignedEvent( event, privKey );
+                        socket.send( JSON.stringify([ "EVENT", signedEvent ]) );
+                        console.log( "contribution id:", signedEvent.id );
+                        await nostr_image_host.waitSomeSeconds( 2 );
+                        socket.close();
+                        showModal( '<p>Success! Your contribution has been recorded</p>' );
+                    });
+                } else {
+                    var event = {
+                        "content"    : note,
+                        "created_at" : Math.floor( Date.now() / 1000 ),
+                        "kind"       : 62116,
+                        "tags"       : [ [ "p", project.project_key ] ],
+                        "pubkey"     : pubKey,
+                    }
+                    var signedEvent = await nostr_image_host.getSignedEvent( event, privKey );
+                    socket.send( JSON.stringify([ "EVENT", signedEvent ]) );
+                    console.log( "contribution id:", signedEvent.id );
+                    await nostr_image_host.waitSomeSeconds( 2 );
+                    socket.close();
+                    showModal( '<p>Success! Your contribution has been recorded</p>' );
+                }
+            }
+            var do_upload_bar = async ( hash, image_id ) => {
+                var html = `
+                    <div class="progress">
+                        <h2>Progress bar <span id="goal" style="font-size: .8em; font-weight: normal;"></span></h2>
+                        <div class="progressOutline" style="height: 2em; border: 1px solid grey; border-radius: 25px; overflow: hidden;">
+                            <div class="progressBar" style="height: 2em; background-color: #61eb34; width: 0%; transition: width 1s;">
+                            </div>
+                        </div>
+                        <div class="progress_status"></div>
+                    </div>
+                `;
+                if ( nostr_image_host[ `n_${hash}_percent_done_uploading` ] == "100%" ) html = html + `<h2>Your image id</h2><p>${image_id}</p>`;
+                showModal( html );
+                var percent = nostr_image_host[ `n_${hash}_percent_done_uploading` ];
+                if ( $( '.progressBar' ) ) $( '.progressBar' ).style.width = percent;
+                await nostr_image_host.waitSomeSeconds( 2 );
+                if ( nostr_image_host[ `n_${hash}_percent_done_uploading` ] != "100%" ) do_upload_bar( hash );
+            }
+            function isValidAddress( address ) {
+                try{
+                    return !!tapscript.Address.decode( address ).script;
+                } catch( e ) {return;}
+                return;
+            }
+            var specialDeposit = async ( amount_needed, goal_level ) => {
+                var inputs = [];
+                var script = [ 0, btc_pub, 'OP_CHECKSIGADD', btc_pub, 'OP_CHECKSIGADD', 2, 'OP_EQUAL' ];
+                var tapleaf = tapscript.Tap.encodeScript( script );
+                var [ tseckey_keypath ] = tapscript.Tap.getSecKey( btc_sec, { tree: [script].map( s => tapscript.Tap.encodeScript( s ) ) } );
+                // var [ tseckey_script_path ] = tapscript.Tap.getSecKey( btc_sec, { tree: [script].map( s => tapscript.Tap.encodeScript( s ) ), target: tapleaf });
+                var [ tpubkey, cblock ] = tapscript.Tap.getPubKey( btc_pub, { target: tapleaf });
+                var address = tapscript.Address.p2tr.fromPubKey( tpubkey, 'testnet' );
+                var url = "bitcoin:" + address;
+                var a = document.createElement( "a" );
+                a.href = url;
+                a.target = "_blank";
+                a.append( createQR( url.toUpperCase() ) );
+                var prep_div = document.createElement( "div" );
+                prep_div.append( a );
+                var div_html = prep_div.innerHTML + `<p>${address}</p><p>Please deposit EXACTLY ${amount_needed} sats -- if you deposit ANYTHING EXTRA it will go to miners as fees</p>`;
+                showModal( div_html );
+                var utxos = await getData( `https://${btc_net}/api/address/${address}/utxo` );
+                utxos = JSON.parse( utxos );
+                var simplified_utxos = [];
+                utxos.forEach( item => simplified_utxos.push( `${item[ "txid" ]}:${item[ "vout" ]}` ) );
+                var new_utxo = await utxoloop( address, simplified_utxos );
+                new_utxo = new_utxo.split( ":" );
+                var i; for ( i=0; i<contributed_utxos.length; i++ ) {
+                    var item = contributed_utxos[ i ];
+                    var input = {
+                        txid: item[ "txid" ],
+                        vout: item[ "vout" ],
+                        prevout: {
+                            value: item[ "value" ],
+                            scriptPubKey: tapscript.Address.toScriptPubKey( item[ "address" ] ),
+                        }
+                    }
+                    var sig_to_get = goal_level - 1;
+                    var sigs_array = downloaded_sigs[ `${item[ "txid" ]}${item[ "vout" ]}_2` ];
+                    var sig = sigs_array[ sig_to_get ];
+                    input.witness = [ sig ];
+                    inputs.push( input );
+                }
+                var last_input = {
+                    txid: new_utxo[ 0 ],
+                    vout: Number( new_utxo[ 1 ] ),
+                    prevout: {
+                        value: Number( new_utxo[ 2 ] ),
+                        scriptPubKey: tapscript.Address.toScriptPubKey( address ),
+                    }
+                }
+                inputs.push( last_input );
+                var contribution_txdata = tapscript.Tx.create({
+                    vin: inputs,
+                    vout: [{
+                        value: levels[ goal_level ],
+                        scriptPubKey: tapscript.Address.toScriptPubKey( project.project_add ),
+                    }],
+                });
+                var i; for ( i=0; i<contributed_utxos.length; i++ ) {
+                    var item = contributed_utxos[ i ];
+                    var index = i;
+                    var tapleaf = item[ "tapleaf" ];
+                    var script = item[ "script" ];
+                    var cblock = item[ "cblock" ];
+                    var their_key = item[ "contributor_key" ];
+                    var their_sig = contribution_txdata.vin[ index ].witness[ 0 ];
+                    var sighash = await tapscript.Signer.taproot.hash( contribution_txdata, index, { extension: tapleaf, sigflag: 128 | 1 } ).hex;
+                    var isValid = await nobleSecp256k1.schnorr.verify( their_sig.substring( 0, 128 ), sighash, their_key );
+                    if ( !isValid ) {
+                        contribution_txdata.vin.splice( i, 1 );
+                        continue;
+                    }
+                    var mysig = tapscript.Signer.taproot.sign( btc_sec, contribution_txdata, index, { extension: tapleaf } ).hex;
+                    contribution_txdata.vin[ index ].witness.unshift( mysig );
+                    contribution_txdata.vin[ index ].witness.push( script, cblock );
+                }
+                var last_sig = tapscript.Signer.taproot.sign( tseckey_keypath, contribution_txdata, contribution_txdata.vin.length - 1 ).hex;
+                contribution_txdata.vin[ contribution_txdata.vin.length - 1 ].witness = [ last_sig ];
+                var txhex = tapscript.Tx.encode( contribution_txdata ).hex;
+                showModal( `<p>Broadcast this:</p><p>${txhex}</p>` );
+            }
+            async function pushBTCpmt( rawtx, network ) {
+                var txid = await postData( `https://${btc_net}/` + network + "api/tx", rawtx );
+                return txid;
+            }
+            async function getBitcoinPriceFromCoinbase() {
+                var data = await getData( "https://api.coinbase.com/v2/prices/BTC-USD/spot" );
+                if ( data == "error" ) return 0;
+                var json = JSON.parse( data );
+                var price = json[ "data" ][ "amount" ];
+                return price;
+            }
+
+            async function getBitcoinPriceFromKraken() {
+                var data = await getData( "https://api.kraken.com/0/public/Ticker?pair=XBTUSD" );
+                if ( data == "error" ) return 0;
+                var json = JSON.parse( data );
+                var price = json[ "result" ][ "XXBTZUSD" ][ "a" ][ 0 ];
+                return price;
+            }
+
+            async function getBitcoinPriceFromCoindesk() {
+                var data = await getData( "https://api.coindesk.com/v1/bpi/currentprice.json" );
+                if ( data == "error" ) return 0;
+                var json = JSON.parse( data );
+                var price = json[ "bpi" ][ "USD" ][ "rate_float" ];
+                return price;
+            }
+
+            async function getBitcoinPriceFromGemini() {
+                var data = await getData( "https://api.gemini.com/v2/ticker/BTCUSD" );
+                if ( data == "error" ) return 0;
+                var json = JSON.parse( data );
+                var price = json[ "bid" ];
+                return price;
+            }
+
+            async function getBitcoinPriceFromCoinGecko() {
+                var data = await getData( "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&precision=2" );
+                if ( data == "error" ) return 0;
+                var json = JSON.parse( data );
+                var price = json[ "bitcoin" ][ "usd" ];
+                return price;
+            }
+
+            async function getBitcoinPrice() {
+                var prices = [];
+                var cbprice = await getBitcoinPriceFromCoinbase();
+                var kprice = await getBitcoinPriceFromKraken();
+                var cdprice = await getBitcoinPriceFromCoindesk();
+                var gprice = await getBitcoinPriceFromGemini();
+                var cgprice = await getBitcoinPriceFromCoinGecko();
+                prices.push( Number( cbprice ), Number( kprice ), Number( cdprice ), Number( gprice ), Number( cgprice ) );
+                prices.sort();
+                return prices[ 2 ];
+            }
+            var bitcoinToSats = btc => Math.floor( btc * 100_000_000 );
+
+            async function satsToDollars( sats ) {
+                if ( sats >= 100000000 ) sats = sats * 10;
+                if ( !sessionStorage[ "btc_price" ] ) var bitcoin_price = await getBitcoinPrice();
+                else var bitcoin_price = Number( sessionStorage[ "btc_price" ] );
+                var value_in_dollars = Number( String( sats ).padStart( 8, "0" ).slice( 0,-9 ) + "." + String( sats ).padStart( 8, "0" ).slice( -9 ) ) * bitcoin_price;
+                return value_in_dollars;
+            }
+
+            async function postData( url, json, content_type = "", apikey = "" ) {
+                var rtext = "";
+                function inner_post( url, json, content_type = "", apikey = "" ) {
+                    var xhttp = new XMLHttpRequest();
+                    xhttp.open( "POST", url, true );
+                    if ( content_type ) {
+                        xhttp.setRequestHeader( `Content-Type`, content_type );
+                    }
+                    if ( apikey ) {
+                        xhttp.setRequestHeader( `X-Api-Key`, apikey );
+                    }
+                    xhttp.send( json );
+                    return xhttp;
+                }
+                var data = inner_post( url, json, content_type, apikey );
+                data.onerror = function( e ) {
+                    rtext = "error";
+                }
+                async function isResponseReady() {
+                    return new Promise( function( resolve, reject ) {
+                        if ( rtext == "error" ) {
+                            resolve( rtext );
+                        }
+                        if ( !data.responseText || data.readyState != 4 ) {
+                            setTimeout( async function() {
+                                var msg = await isResponseReady();
+                                resolve( msg );
+                            }, 50 );
+                        } else {
+                            resolve( data.responseText );
+                        }
+                    });
+                }
+                var returnable = await isResponseReady();
+                return returnable;
+            }
+            var fundraiserWasASuccess = () => {
+                // if ( !funds_spent_cooperatively ) return;
+                // $( '.raised' ).innerText = $( '.goal' ).innerText;
+                // $( '.percent_funded' ).innerText = '100%';
+                // console.log( "fundraiser_was_a_success", funds_spent_cooperatively );
+            }
+            var checkForUtxos = async () => {
+                var script = [ 0, btc_pub, 'OP_CHECKSIGADD', project.project_key, 'OP_CHECKSIGADD', 2, 'OP_EQUAL' ];
+                var tapleaf = tapscript.Tap.encodeScript( script );
+                var [ tseckey_keypath ] = tapscript.Tap.getSecKey( btc_sec, { tree: [script].map( s => tapscript.Tap.encodeScript( s ) ) } );
+                // var [ tseckey_script_path ] = tapscript.Tap.getSecKey( btc_sec, { tree: [script].map( s => tapscript.Tap.encodeScript( s ) ), target: tapleaf });
+                var [ tpubkey, cblock ] = tapscript.Tap.getPubKey( btc_pub, { target: tapleaf });
+                var address = tapscript.Address.p2tr.fromPubKey( tpubkey, 'testnet' );
+                var utxos = await getData( `https://${btc_net}/api/address/${address}/utxo` );
+                contributor_utxos = JSON.parse( utxos );
+                if ( contributor_utxos.length ) $( '.revoke_button' ).classList.remove( "hidden" );
+            }
+            var prepLevels = async () => {
+                var i; for ( i=0; i<901; i++ ) {
+                    var ten_percent = Math.floor( ( project.project_gol * .01 ) );
+                    var extra = ten_percent * i;
+                    levels.push( project.project_gol + extra );
+                }
+                var contribution_txdata = tapscript.Tx.create({
+                    vin: [],
+                    vout: [{
+                        value: 0,
+                        scriptPubKey: tapscript.Address.toScriptPubKey( project.project_add ),
+                    }],
+                });
+                showModal( `
+                    <p>Preparing to claim funds</p>
+                    <h2>Progress bar <span id="goal" style="font-size: .8em; font-weight: normal;"></span></h2>
+                    <div class="progressOutline" style="height: 2em; border: 1px solid grey; border-radius: 25px; overflow: hidden;">
+                        <div class="progressBar" style="height: 2em; background-color: #61eb34; width: 0%; transition: width 1s;">
+                        </div>
+                    </div>
+                    <div class="status">Downloading signatures</div>
+                ` );
+                var i; for ( i=0; i<contributed_utxos.length; i++ ) {
+                    var item = contributed_utxos[ i ];
+                    var index = i;
+                    var b64 = await downloader( item[ "extra_sigs_id" ] )
+                    if ( b64 == "no good" ) continue;
+                    var hex = base64ToHex( b64 );
+                    var sigs_array = hex.match(/.{1,130}/g);
+                    downloaded_sigs[ `${item[ "txid" ]}${item[ "vout" ]}` ] = sigs_array;
+                    sigs_array.unshift( item[ "main_sigs" ][ 1 ] );
+                    var percent = Number( ( ( Number( i + 1 ) / contributed_utxos.length ) * 100 ).toFixed( 2 ) );
+                    if ( $( '.progressBar' ) ) $( '.progressBar' ).style.width = String( percent ) + "%";
+                }
+                showModal( `
+                    <p>Preparing to claim funds</p>
+                    <h2>Progress bar <span id="goal" style="font-size: .8em; font-weight: normal;"></span></h2>
+                    <div class="progressOutline" style="height: 2em; border: 1px solid grey; border-radius: 25px; overflow: hidden;">
+                        <div class="progressBar" style="height: 2em; background-color: #61eb34; width: 0%; transition: width 1s;">
+                        </div>
+                    </div>
+                    <div class="status">Validating signatures</div>
+                ` );
+                var valid_levels = [];
+                var j; for ( j=0; j<levels.length; j++ ) {
+                    var percent = Number( ( ( Number( j + 1 ) / levels.length ) * 100 ).toFixed( 2 ) );
+                    if ( $( '.progressBar' ) ) $( '.progressBar' ).style.width = String( percent ) + "%";
+                    contribution_txdata.vin = [];
+                    var amt_contributed_for_this_level = 0;
+                    var i; for ( i=0; i<contributed_utxos.length; i++ ) {
+                        var item = contributed_utxos[ i ];
+                        var index = i;
+                        var input = {
+                            txid: item[ "txid" ],
+                            vout: item[ "vout" ],
+                            prevout: {
+                                value: item[ "value" ],
+                                scriptPubKey: tapscript.Address.toScriptPubKey( item[ "address" ] ),
+                            }
+                        }
+                        input.witness = [];
+                        var sigs_array = downloaded_sigs[ `${item[ "txid" ]}${item[ "vout" ]}` ];
+                        var their_sig = sigs_array[ j ];
+                        input.witness = [ their_sig ];
+                        contribution_txdata.vin[ index ] = input;
+                        contribution_txdata.vout[ 0 ][ "value" ] = levels[ j ];
+                        var tapleaf = item[ "tapleaf" ];
+                        var script = item[ "script" ];
+                        var cblock = item[ "cblock" ];
+                        var their_key = item[ "contributor_key" ];
+                        var sighash = await tapscript.Signer.taproot.hash( contribution_txdata, index, { extension: tapleaf, sigflag: 128 | 1 } ).hex;
+                        var isValid = await nobleSecp256k1.schnorr.verify( their_sig.substring( 0, 128 ), sighash, their_key );
+                        if ( !isValid ) continue;
+                        amt_contributed_for_this_level = amt_contributed_for_this_level + item[ "value" ];
+                        contributed_utxos[ i ][ "levels_with_valid_sig" ][ `num_${levels[ j ]}` ] = their_sig;
+                    }
+                    if ( amt_contributed_for_this_level >= levels[ j ] ) valid_levels.push( levels[ j ] );
+                }
+                var next_level;
+                levels.every( item => {
+                    if ( item > valid_levels[ valid_levels.length - 1 ] ) {
+                        next_level = item;
+                        return;
+                    }
+                    return true;
+                });
+                if ( next_level ) valid_levels.push( next_level );
+                levels = valid_levels;
+            }
+            var downloader = async file_id => {
+                var b64;
+                setTimeout( () => {b64 = "no good"}, 5000 );
+                setTimeout( async () => {b64 = await nostr_image_host.downloadFromNostr( file_id );}, 1 );
+                async function isNoteSetYet( note_i_seek ) {
+                    return new Promise( function( resolve, reject ) {
+                        if ( !note_i_seek ) {
+                            setTimeout( async function() {
+                                var msg = await isNoteSetYet( b64 );
+                                resolve( msg );
+                            }, 100 );
+                        } else {
+                            resolve( note_i_seek );
+                        }
+                    });
+                }
+                async function getTimeoutData() {
+                    var note_i_seek = await isNoteSetYet( b64 );
+                    return note_i_seek;
+                }
+                var returnable = await getTimeoutData();
+                return returnable;
+            }
+        </script>
+    </head>
+    <body>
+        <div class="all_container">
+            <div class="navbar_container">
+                <div class="navbar">
+                    <a href="https://supertestnet.github.io/semaphore/" style="color: black; text-decoration: none;">
+                        <div class="logo_name_and_desc">
+                            <div class="semaphore_logo">
+                                <img class="logo_image">
+                                <script>
+                                    var img = `data:image/png;base64,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dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPgogIDxyZGY6RGVzY3JpcHRpb24gcmRmOmFib3V0PSIiCiAgICB4bWxuczppcHRjRXh0PSJodHRwOi8vaXB0Yy5vcmcvc3RkL0lwdGM0eG1wRXh0LzIwMDgtMDItMjkvIgogICAgeG1sbnM6eG1wTU09Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9tbS8iCiAgICB4bWxuczpzdEV2dD0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL3NUeXBlL1Jlc291cmNlRXZlbnQjIgogICAgeG1sbnM6cGx1cz0iaHR0cDovL25zLnVzZXBsdXMub3JnL2xkZi94bXAvMS4wLyIKICAgIHhtbG5zOkdJTVA9Imh0dHA6Ly93d3cuZ2ltcC5vcmcveG1wLyIKICAgIHhtbG5zOmRjPSJodHRwOi8vcHVybC5vcmcvZGMvZWxlbWVudHMvMS4xLyIKICAgIHhtbG5zOnRpZmY9Imh0dHA6Ly9ucy5hZG9iZS5jb20vdGlmZi8xLjAvIgogICAgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIgogICB4bXBNTTpEb2N1bWVudElEPSJnaW1wOmRvY2lkOmdpbXA6NTlkY2YyNTMtYTk4MC00ZWRiLTgzYjEtODhmMWYwNGNiZGI4IgogICB4bXBNTTpJbnN0YW5jZUlEPSJ4bXAuaWlkOjIwZWQ4ODFhLWU0NWQtNDNkNS04OGI0LTQ2ZDMxY2NmMjA4MCIKICAgeG1wTU06T3JpZ2luYWxEb2N1bWVudElEPSJ4bXAuZGlkOjM2ZTFkZTA2LTk4ODItNGRmZi1hNWI3LWYyMmM2Yjk5OTRmNCIKICAgR0lNUDpBUEk9IjIuMCIKICAgR0lNUDpQbGF0Zm9ybT0iTGludXgiCiAgIEdJTVA6VGltZVN0YW1wPSIxNzA0NTg5NjczNDMwNTQ4IgogICBHSU1QOlZlcnNpb249IjIuMTAuMjIiCiAgIGRjOkZvcm1hdD0iaW1hZ2UvcG5nIgogICB0aWZmOk9yaWVudGF0aW9uPSIxIgogICB4bXA6Q3JlYXRvclRvb2w9IkdJTVAgMi4xMCI+CiAgIDxpcHRjRXh0OkxvY2F0aW9uQ3JlYXRlZD4KICAgIDxyZGY6QmFnLz4KICAgPC9pcHRjRXh0OkxvY2F0aW9uQ3JlYXRlZD4KICAgPGlwdGNFeHQ6TG9jYXRpb25TaG93bj4KICAgIDxyZGY6QmFnLz4KICAgPC9pcHRjRXh0OkxvY2F0aW9uU2hvd24+CiAgIDxpcHRjRXh0OkFydHdvcmtPck9iamVjdD4KICAgIDxyZGY6QmFnLz4KICAgPC9pcHRjRXh0OkFydHdvcmtPck9iamVjdD4KICAgPGlwdGNFeHQ6UmVnaXN0cnlJZD4KICAgIDxyZGY6QmFnLz4KICAgPC9pcHRjRXh0OlJlZ2lzdHJ5SWQ+CiAgIDx4bXBNTTpIaXN0b3J5PgogICAgPHJkZjpTZXE+CiAgICAgPHJkZjpsaQogICAgICBzdEV2dDphY3Rpb249InNhdmVkIgogICAgICBzdEV2dDpjaGFuZ2VkPSIvIgogICAgICBzdEV2dDppbnN0YW5jZUlEPSJ4bXAuaWlkOjBmMWIyMmUwLTAyZWMtNDI4MC1hODI2LTAxMTc1MDcxMjk5ZCIKICAgICAgc3RFdnQ6c29mdHdhcmVBZ2VudD0iR2ltcCAyLjEwIChMaW51eCkiCiAgICAgIHN0RXZ0OndoZW49Ii0wNjowMCIvPgogICAgIDxyZGY6bGkKICAgICAgc3RFdnQ6YWN0aW9uPSJzYXZlZCIKICAgICAgc3RFdnQ6Y2hhbmdlZD0iLyIKICAgICAgc3RFdnQ6aW5zdGFuY2VJRD0ieG1wLmlpZDo3Y2Q0MTJhOS00ZmU1LTRmMmUtOGEyYy05ZGEwMGFhOWNmMWYiCiAgICAgIHN0RXZ0OnNvZnR3YXJlQWdlbnQ9IkdpbXAgMi4xMCAoTGludXgpIgogICAgICBzdEV2dDp3aGVuPSItMDY6MDAiLz4KICAgIDwvcmRmOlNlcT4KICAgPC94bXBNTTpIaXN0b3J5PgogICA8cGx1czpJbWFnZVN1cHBsaWVyPgogICAgPHJkZjpTZXEvPgogICA8L3BsdXM6SW1hZ2VTdXBwbGllcj4KICAgPHBsdXM6SW1hZ2VDcmVhdG9yPgogICAgPHJkZjpTZXEvPgogICA8L3BsdXM6SW1hZ2VDcmVhdG9yPgogICA8cGx1czpDb3B5cmlnaHRPd25lcj4KICAgIDxyZGY6U2VxLz4KICAgPC9wbHVzOkNvcHlyaWdodE93bmVyPgogICA8cGx1czpMaWNlbnNvcj4KICAgIDxyZGY6U2VxLz4KICAgPC9wbHVzOkxpY2Vuc29yPgogIDwvcmRmOkRlc2NyaXB0aW9uPgogPC9yZGY6UkRGPgo8L3g6eG1wbWV0YT4KICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgIAo8P3hwYWNrZXQgZW5kPSJ3Ij8+Q6lFAQAAAAZiS0dEAP8A/wD/oL2nkwAAAAlwSFlzAAAuIwAALiMBeKU/dgAAAAd0SU1FB+gBBwEHNY5EGpUAAAAZdEVYdENvbW1lbnQAQ3JlYXRlZCB3aXRoIEdJTVBXgQ4XAAAfjUlEQVR42u2dbWwcV72H/7O2Y9dxGzclLqUvBEipSkvpW65QCk7VtE3zoRRxealQKwG6TamUQHqFikBFtNCbpgHSpqVCahHiQyX6DakCQUVFJFoqkIIuAQndiiaOHTt+zdprZ3fjt537oV5nPJ6Xc86c2Z1dP4+U2J6ZnR3vnn38+585c0YEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACgVji8BKDKs88+++F//OMfxwcGBqRSqUilUpHFxUWpVCriuu7yP8d5r1nlcjlpaWmRXC4nIiKtra2yZcuWoeuvv/66vXv3FnhFAWGBNQ4cOHDnW2+99YdSqSRzc3Ny7tw5KZfLy1/n5+fFdV0RkeWvflzXlZaWFmlra5MLLrhAOjo6pL29Xdrb26WtrU06Ojrktttue/j73//+S7zigLBAi4MHD2774x//+OdyuSylUklmZmZkenpaFhYWAmUUJKoo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`;
+                                    var b64 = img;
+                                    $( '.logo_image' ).src = b64;
+                                    </script>
+                            </div>
+                            <div class="semaphore_name_and_desc">
+                                <div class="semaphore_name">Semaphore</div>
+                                <div class="semaphore_desc">Crowdfunding with bitcoin</div>
+                            </div>
+                        </div>
+                    </a>
+                    <div><button class="login_btn hidden">Log in</button></div>
+                </div>
+            </div>
+            <div class="below_navbar">
+                <div class="page_content">
+                    <div class="welcome_page">
+                        <p>
+                            Welcome to Semaphore. Please use the stacker news sub below to find a list of crowdfunding projects, or make your own project.
+                        </p>
+                        <a href="https://stacker.news/" target="_blank" style="color: blue; text-decoration: underline; cursor: pointer;">
+                            <h2>
+                                Find projects
+                            </h2>
+                        </a>
+                        <h2 class="log_into_project" onclick="login()" style="color: blue; text-decoration: underline; cursor: pointer;">
+                            View project you created or contributed to
+                        </h2>
+                        <h2 id="create_project_btn" class="create_project_btn" style="color: blue; text-decoration: underline; cursor: pointer;">
+                            Create project
+                        </h2>
+                        <div class="create_project hidden">
+                            <p style="font-weight: bold;">Enter project name</p>
+                            <p><input class="project_nym"></p>
+                            <p style="font-weight: bold;">Upload project pic<br>(1920x1080 recommended)</p>
+                            <p><input class="project_pic" type="file" onchange="if ( this.files[ 0 ].size < 266240 ) {upload_data = [ this.files[ 0 ] ];} else {alert( 'File too large, make sure it is less than 260 kilobytes' ); this.value = null;}" /></p>
+                            <p style="font-weight: bold;">Enter project description</p>
+                            <p><textarea class="project_dsc"></textarea></p>
+                            <p style="font-weight: bold;">Enter how much you want to raise in btc<br>e.g. 15.21212121</p>
+                            <p><input class="project_gol"></p>
+                            <p>Aka $<span class="project_gol_in_usd">0</span></p>
+                            <p style="font-weight: bold;">Enter a bitcoin address where you want contributions to go</p>
+                            <p><input class="project_add"></p>
+                            <p style="font-weight: bold;">Enter when you want your fundraiser to end</p>
+                            <p><input type="date" name="project_end" id="project_end" class="project_end"></p>
+                            <p><button class="submit_new_project">Submit</button></p>
+                        </div>
+                    </div>
+                    <div class="project hidden"></div>
+                </div>
+            </div>
+        </div>
+        <script>
+            $( '.project_gol' ).onchange = async () => {
+                var num_of_btc = Number( $( '.project_gol' ).value );
+                var num_in_sat = bitcoinToSats( num_of_btc );
+                var amt_in_usd = await satsToDollars( num_in_sat );
+                if ( isNaN( amt_in_usd ) || amt_in_usd < 0 ) amt_in_usd = 0;
+                var pre_show = ( Math.round( amt_in_usd * 100 ) / 100 ).toLocaleString();
+                var num_to_show = pre_show;
+                if ( pre_show.includes( "." ) ) {
+                    var part_before_dot = pre_show.substring( 0, pre_show.indexOf( "." ) );
+                    var part_after_dot = pre_show.substring( pre_show.indexOf( "." ) + 1 );
+                    part_after_dot = part_after_dot.padEnd( 2, "0" );
+                    num_to_show = part_before_dot + "." + part_after_dot;
+                }
+                $( '.project_gol_in_usd' ).innerText = num_to_show;
+            }
+            $( '.project_gol' ).onkeyup = async () => {
+                var num_of_btc = Number( $( '.project_gol' ).value );
+                var num_in_sat = bitcoinToSats( num_of_btc );
+                var amt_in_usd = await satsToDollars( num_in_sat );
+                if ( isNaN( amt_in_usd ) || amt_in_usd < 0 ) amt_in_usd = 0;
+                var pre_show = ( Math.round( amt_in_usd * 100 ) / 100 ).toLocaleString();
+                var num_to_show = pre_show;
+                if ( pre_show.includes( "." ) ) {
+                    var part_before_dot = pre_show.substring( 0, pre_show.indexOf( "." ) );
+                    var part_after_dot = pre_show.substring( pre_show.indexOf( "." ) + 1 );
+                    part_after_dot = part_after_dot.padEnd( 2, "0" );
+                    num_to_show = part_before_dot + "." + part_after_dot;
+                }
+                $( '.project_gol_in_usd' ).innerText = num_to_show;
+            }
+            $( '.create_project_btn' ).onclick = () => {
+                $( '.create_project' ).classList.remove( "hidden" );
+                location.href = "#create_project_btn";
+            }
+            $( '.project_nym' ).value = "";
+            $( '.project_pic' ).value = null;
+            $( '.project_dsc' ).value = "";
+            $( '.project_gol' ).value = "";
+            $( '.project_add' ).value = "";
+            $( '.project_end' ).value = "";
+            $( '.submit_new_project' ).onclick = async () => {
+                showModal( `
+                    <p>Creating your project, please wait, this usually takes 15 seconds</p>
+                    <h2>Progress bar <span id="goal" style="font-size: .8em; font-weight: normal;"></span></h2>
+                    <div class="progressOutline" style="height: 2em; border: 1px solid grey; border-radius: 25px; overflow: hidden;">
+                        <div class="progressBar" style="height: 2em; background-color: #61eb34; width: 0%; transition: width 1s;">
+                        </div>
+                    </div>
+                ` );
+                if ( !isValidAddress( $( '.project_add' ).value ) ) return showModal( `Try again with a valid bitcoin address` );
+                //TODO: uncomment the line below
+                // if ( $( '.project_add' ).value.startsWith( "t" ) || $( '.project_add' ).value.startsWith( "r" ) || $( '.project_add' ).value.startsWith( "m" ) || $( '.project_add' ).value.startsWith( "n" ) || $( '.project_add' ).value.startsWith( "2" ) ) return showModal( `Try again with a mainnet bitcoin address` );
+                if ( isNaN( $( '.project_gol' ).value ) ) return showModal( `Try again with a valid goal` );
+                if ( Number( $( '.project_gol' ).value ) < 0.001 ) return showModal( `You picked a goal below the minimum of 0.001 btc. Please try again` );
+                if ( !$( '.project_end' ).value ) return showModal( `Try again with a valid end date` );
+                var file = upload_data[ 0 ];
+                var b64_1 = await nostr_image_host.encodeBase64( file );
+                upload_data = [];
+                var end_in_seconds = Math.floor( new Date( $( '.project_end' ).value ).getTime() / 1000 );
+                var now = Math.floor( Date.now() / 1000 );
+                var seconds_til_end = end_in_seconds - now;
+                var blocks_til_end = Math.ceil( seconds_til_end / 600 );
+                var current_blockheight = await getBlockheight( "" );
+                var end_block = current_blockheight + blocks_til_end;
+                var project = {
+                    project_nym: $( '.project_nym' ).value,
+                    project_dsc: $( '.project_dsc' ).value,
+                    project_gol: Number( $( '.project_gol' ).value ) * 100000000,
+                    project_add: $( '.project_add' ).value,
+                    project_end: end_block,
+                    project_key: btc_pub,
+                }
+                var b64_2 = btoa( JSON.stringify( project ) )
+                var fulltext = b64_1 + "|---|" + b64_2;
+                socket = new WebSocket( relay );
+                socket.addEventListener('open', async function( e ) {
+                    var array = fulltext.match(/.{1,4000}/g);
+                    var privKey = nostr_image_host.bytesToHex( nobleSecp256k1.utils.randomPrivateKey() );
+                    var pubKey = nobleSecp256k1.getPublicKey( privKey, true ).substring( 2 );
+                    var i; for ( i=0; i<array.length; i++ ) {
+                        var note = array[ i ];
+                        var part = i + 1;
+                        var whole = array.length;
+                        var id = await nostr_image_host.sendNoteAndReturnId( note, part, whole, socket, privKey, pubKey );
+                        var sprj = nostr_image_host.hexToBech32( "sprj", id + nostr_image_host.textToHex( relay ) );
+                        var percent = Number( ( ( part / whole ) * 100 ).toFixed( 2 ) );
+                        if ( $( '.progressBar' ) ) $( '.progressBar' ).style.width = String( percent ) + "%";
+                        var url = window.location.href;
+                        if ( url.includes( "#" ) ) url = url.substring( 0, url.indexOf( "#" ) );
+                        url = url + `?fundraiser=${sprj}`;
+                        var backup_file_contents = {
+                            privkey: btc_sec,
+                            fundraiser_id: sprj,
+                        }
+                        var fileName = `semaphore_fundraiser_${sprj}_backup.json`;
+                        if ( percent == 100 ) showModal( `<p>First, download and store <span style="color: blue; text-decoration: underline; cursor: pointer;" onclick='saveData( ${JSON.stringify( backup_file_contents )}, "${fileName}" );'>your backup file</span>. You can only log in to claim your funds with this backup file.</p><p>Second, <a href="${url}" target="_blank" style="color: blue; text-decoration: underline; cursor: pointer;">here</a> is a link to your project. Have fun!</p>` );
+                        await nostr_image_host.waitSomeSeconds( 2 );
+                    }
+                    socket.close();
+                });
+            }
+            $( '.login_btn' ).onclick = login;
+            if ( $_GET[ "fundraiser" ] ) loadFundraiser();
+            else setTimeout( async () => sessionStorage[ "btc_price" ] = await getBitcoinPrice(), 100 );
+        </script>
+        <div class="black-bg hidden"></div>
+        <div class="modal hidden"></div>
+    </body>
+</html>
