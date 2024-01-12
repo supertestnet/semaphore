@@ -414,7 +414,6 @@
                 }
                 var signedEvent = await nostr_image_host.getSignedEvent( event, privKey );
                 socket.send( JSON.stringify([ "EVENT", signedEvent ]) );
-                console.log( "contribution id:", signedEvent.id );
                 await nostr_image_host.waitSomeSeconds( 2 );
                 socket.close();
                 var backup_file_contents = {
@@ -515,7 +514,7 @@
                 var blocks_left = project.project_end - current_blockheight;
                 var time_left = blocks_left * 600;
                 if ( !timeloop_seconds ) timeloop( time_left );
-                $( ".project_nym" ).innerText = project.project_nym;
+                $( '.project .project_nym' ).innerText = project.project_nym;
                 var b64 = project.project_pic;
                 $( ".image_and_name" ).setAttribute( "data-bg", b64 );
                 $( ".image_and_name" ).style.backgroundImage = `url( '${b64}' )`;
@@ -555,6 +554,7 @@
                     `, true );
                     await getNote( "modal_cleared" );
                     var recovery = await getNote( "recovery" );
+                    if ( !isValidAddress( recovery ) ) return showModal( `Invalid contribution due to bad recovery address. Please try again` );
                     var url = "bitcoin:" + address;
                     var a = document.createElement( "a" );
                     a.href = url;
@@ -572,7 +572,7 @@
                     sessionStorage.removeItem( "modal_cleared" );
                     sessionStorage.removeItem( "comment" );
                     showModal( `
-                        <p style="font-weight: bold;">Pledge detected! Enter a comment to send with it (optional)</p>
+                        <p style="font-weight: bold;">Pledge detected! Enter a public comment to send with it (optional)</p>
                         <p><input style="max-width: 90%" class="modal_comment"></p>
                         <p>Chars left: <span class="modal_comment_chars_left">140</span></p>
                         <p><button class="submit_modal_comment">Submit</button></p>
@@ -581,7 +581,7 @@
                         sessionStorage[ 'comment' ] = $( '.modal_comment' ).value;
                         sessionStorage[ 'modal_cleared' ] = true;
                         showModal( `
-                            <p>loading...this usually takes 50 seconds</p>
+                            <p>Uploading signatures, please wait</p>
                             <h2>Progress bar <span id='goal' style='font-size: .8em; font-weight: normal;'></span></h2>
                             <div class='progressOutline' style='height: 2em; border: 1px solid grey; border-radius: 25px; overflow: hidden;'>
                                 <div class='progressBar' style='height: 2em; background-color: #61eb34; width: 0%; transition: width 1s;'></div>
@@ -884,7 +884,7 @@
                         overpayment_friendly = overpayment_friendly.toLocaleString();
                     }
 
-                    var remainder_if_exeeding_10x = total - levels[ current_level ];
+                    var remainder_if_exeeding_10x = amt_in_reversible_pledges - levels[ current_level ];
                     var remainder_if_exeeding_10x_friendly = remainder_if_exeeding_10x;
                     var remainder_if_exeeding_10x_ending = "sats";
                     if ( remainder_if_exeeding_10x_friendly > 1000000 ) {
@@ -966,13 +966,16 @@
                         }
                     }
 
-                    var amount_i_can_withdraw_if_i_must_step_down_friendly = amount_i_can_withdraw_if_i_must_step_down;
-                    var amount_i_can_withdraw_if_i_must_step_down_ending = "sats";
-                    if ( amount_i_can_withdraw_if_i_must_step_down_friendly > 1000000 ) {
-                        amount_i_can_withdraw_if_i_must_step_down_friendly = satsToBitcoin( amount_i_can_withdraw_if_i_must_step_down_friendly );
-                        amount_i_can_withdraw_if_i_must_step_down_ending = "btc";
-                    } else {
-                        amount_i_can_withdraw_if_i_must_step_down_friendly = amount_i_can_withdraw_if_i_must_step_down_friendly.toLocaleString();
+                    if ( amount_i_can_withdraw_if_i_must_step_down ) {
+                        var amount_i_can_withdraw_if_i_must_step_down_friendly = amount_i_can_withdraw_if_i_must_step_down;
+                        console.log( amount_i_can_withdraw_if_i_must_step_down_friendly );
+                        var amount_i_can_withdraw_if_i_must_step_down_ending = "sats";
+                        if ( amount_i_can_withdraw_if_i_must_step_down_friendly > 1000000 ) {
+                            amount_i_can_withdraw_if_i_must_step_down_friendly = satsToBitcoin( amount_i_can_withdraw_if_i_must_step_down_friendly );
+                            amount_i_can_withdraw_if_i_must_step_down_ending = "btc";
+                        } else {
+                            amount_i_can_withdraw_if_i_must_step_down_friendly = amount_i_can_withdraw_if_i_must_step_down_friendly.toLocaleString();
+                        }
                     }
 
                     // There are 4 variables:
@@ -1008,6 +1011,7 @@
                     if ( scen_1 ) {
                         //goal: 200_000 aka 0.002 btc reversible: 211_000 total: 221_000
                         console.log( "scenario 1: amt_in_reversible_pledges", 680_000_000, "and total", 690_000_000 );
+                        var utxos_to_block = [];
                         var i; for ( i=0; i<contributed_utxos.length; i++ ) {
                             var item = contributed_utxos[ i ];
                             var index = i;
@@ -1019,10 +1023,20 @@
                                     scriptPubKey: tapscript.Address.toScriptPubKey( item[ "address" ] ),
                                 }
                             }
-                            if ( `num_${levels[ current_level ]}` in item[ "levels_with_valid_sig" ] ) var sig = item[ "levels_with_valid_sig" ][ `num_${levels[ current_level ]}` ];
-                            else continue;
-                            input.witness = [ sig ];
-                            inputs.push( input );
+                            if ( `num_${levels[ current_level ]}` in item[ "levels_with_valid_sig" ] ) {
+                                var sig = item[ "levels_with_valid_sig" ][ `num_${levels[ current_level ]}` ];
+                                input.witness = [ sig ];
+                                inputs.push( input );
+                            }
+                            else {
+                                utxos_to_block.push( i );
+                                continue;
+                            }
+                        }
+                        var i; for ( i=0; i<contributed_utxos.length; i++ ) {
+                            var item = contributed_utxos[ i ];
+                            var index = i;
+                            if ( utxos_to_block.includes( index ) ) continue;
                             var contribution_txdata = tapscript.Tx.create({
                                 vin: inputs,
                                 vout: [{
@@ -1030,7 +1044,6 @@
                                     scriptPubKey: tapscript.Address.toScriptPubKey( project.project_add ),
                                 }],
                             });
-                            if ( i == contributed_utxos.length - 1 ) console.log( "contribution_txdata:", JSON.stringify( contribution_txdata ) );
                             var tapleaf = item[ "tapleaf" ];
                             var script = item[ "script" ];
                             var cblock = item[ "cblock" ];
@@ -1045,6 +1058,7 @@
                             }
                             contribution_txdata.vin[ index ].witness.unshift( mysig );
                             contribution_txdata.vin[ index ].witness.push( script, cblock );
+                            if ( i == contributed_utxos.length - 1 ) console.log( "contribution_txdata:", JSON.stringify( contribution_txdata ) );
                         }
                         var txhex = tapscript.Tx.encode( contribution_txdata ).hex;
                         console.log( txhex );
@@ -1058,6 +1072,7 @@
                     if ( scen_2 ) {
                         //goal: 200_000 aka 0.002 btc reversible: 221_000 total: 221_000
                         console.log( "scenario 2: amt_in_reversible_pledges", 680_000_000, "and total", 680_000_000 );
+                        var utxos_to_block = [];
                         var i; for ( i=0; i<contributed_utxos.length; i++ ) {
                             var item = contributed_utxos[ i ];
                             var index = i;
@@ -1069,10 +1084,20 @@
                                     scriptPubKey: tapscript.Address.toScriptPubKey( item[ "address" ] ),
                                 }
                             }
-                            if ( `num_${levels[ current_level ]}` in item[ "levels_with_valid_sig" ] ) var sig = item[ "levels_with_valid_sig" ][ `num_${levels[ current_level ]}` ];
-                            else continue;
-                            input.witness = [ sig ];
-                            inputs.push( input );
+                            if ( `num_${levels[ current_level ]}` in item[ "levels_with_valid_sig" ] ) {
+                                var sig = item[ "levels_with_valid_sig" ][ `num_${levels[ current_level ]}` ];
+                                input.witness = [ sig ];
+                                inputs.push( input );
+                            }
+                            else {
+                                utxos_to_block.push( i );
+                                continue;
+                            }
+                        }
+                        var i; for ( i=0; i<contributed_utxos.length; i++ ) {
+                            var item = contributed_utxos[ i ];
+                            var index = i;
+                            if ( utxos_to_block.includes( index ) ) continue;
                             var contribution_txdata = tapscript.Tx.create({
                                 vin: inputs,
                                 vout: [{
@@ -1080,7 +1105,6 @@
                                     scriptPubKey: tapscript.Address.toScriptPubKey( project.project_add ),
                                 }],
                             });
-                            if ( i == contributed_utxos.length - 1 ) console.log( "contribution_txdata:", JSON.stringify( contribution_txdata ) );
                             var tapleaf = item[ "tapleaf" ];
                             var script = item[ "script" ];
                             var cblock = item[ "cblock" ];
@@ -1095,6 +1119,7 @@
                             }
                             contribution_txdata.vin[ index ].witness.unshift( mysig );
                             contribution_txdata.vin[ index ].witness.push( script, cblock );
+                            if ( i == contributed_utxos.length - 1 ) console.log( "contribution_txdata:", JSON.stringify( contribution_txdata ) );
                         }
                         var txhex = tapscript.Tx.encode( contribution_txdata ).hex;
                         console.log( txhex );
@@ -1106,7 +1131,9 @@
                     var scen_3 = ( amt_in_reversible_pledges >= levels[ current_level ] + mining_fee_with_no_extra_input && current_level >= levels.length - 1 && some_money_in_irreversible && !we_are_in_scen_9 && !we_are_in_scen_10 );
 
                     if ( scen_3 ) {
+                        //goal: 200_000 aka 0.002 btc reversible: 2_010_000 total: 2_020_000
                         console.log( "scenario 3: amt_in_reversible_pledges", 71_000_000_000, "and total", 81_000_000_000 );
+                        var utxos_to_block = [];
                         var i; for ( i=0; i<contributed_utxos.length; i++ ) {
                             var item = contributed_utxos[ i ];
                             var index = i;
@@ -1118,10 +1145,20 @@
                                     scriptPubKey: tapscript.Address.toScriptPubKey( item[ "address" ] ),
                                 }
                             }
-                            if ( `num_${levels[ current_level ]}` in item[ "levels_with_valid_sig" ] ) var sig = item[ "levels_with_valid_sig" ][ `num_${levels[ current_level ]}` ];
-                            else continue;
-                            input.witness = [ sig ];
-                            inputs.push( input );
+                            if ( `num_${levels[ current_level ]}` in item[ "levels_with_valid_sig" ] ) {
+                                var sig = item[ "levels_with_valid_sig" ][ `num_${levels[ current_level ]}` ];
+                                input.witness = [ sig ];
+                                inputs.push( input );
+                            }
+                            else {
+                                utxos_to_block.push( i );
+                                continue;
+                            }
+                        }
+                        var i; for ( i=0; i<contributed_utxos.length; i++ ) {
+                            var item = contributed_utxos[ i ];
+                            var index = i;
+                            if ( utxos_to_block.includes( index ) ) continue;
                             var contribution_txdata = tapscript.Tx.create({
                                 vin: inputs,
                                 vout: [{
@@ -1129,7 +1166,6 @@
                                     scriptPubKey: tapscript.Address.toScriptPubKey( project.project_add ),
                                 }],
                             });
-                            if ( i == contributed_utxos.length - 1 ) console.log( "contribution_txdata:", JSON.stringify( contribution_txdata ) );
                             var tapleaf = item[ "tapleaf" ];
                             var script = item[ "script" ];
                             var cblock = item[ "cblock" ];
@@ -1144,10 +1180,11 @@
                             }
                             contribution_txdata.vin[ index ].witness.unshift( mysig );
                             contribution_txdata.vin[ index ].witness.push( script, cblock );
+                            if ( i == contributed_utxos.length - 1 ) console.log( "contribution_txdata:", JSON.stringify( contribution_txdata ) );
                         }
                         var txhex = tapscript.Tx.encode( contribution_txdata ).hex;
                         console.log( txhex );
-                        return showModal( `<p>You received ${total_friendly} ${total_ending} total. Due to the way semaphore is coded, you can only withdraw up to 10x your goal, so you can only withdraw ${current_level_friendly} ${current_level_ending}, and the remainder (${remainder_if_exeeding_10x_friendly} ${remainder_if_exeeding_10x_ending}) will go to miners as fees.</p><p><button onclick="showModal( 'Broadcast this: ${txhex}' )">Ok, withdraw now</button></p>` );
+                        return showModal( `<p>You received ${total_friendly} ${total_ending} total. ${amt_in_reversible_pledges_friendly} ${amt_in_reversible_pledges_ending} of that is in smart contracts and the remainder (${remainder_friendly} ${remainder_ending}) was sent to you directly. Due to the way semaphore is coded, you can only withdraw up to 10x your goal, so you can only withdraw ${current_level_friendly} ${current_level_ending}, and the remainder (${remainder_if_exeeding_10x_friendly} ${remainder_if_exeeding_10x_ending}) will go to miners as fees.</p><p><button onclick="showModal( 'Broadcast this: ${txhex}' )">Ok, withdraw now</button></p>` );
                     }
 
                     // scen_4 = Enough in reversible for level X + fees (and there is no X + 1) AND there is NO money in irreversible (1011 & 1111)
@@ -1155,7 +1192,9 @@
                     var scen_4 = ( amt_in_reversible_pledges >= levels[ current_level ] + mining_fee_with_no_extra_input && current_level >= levels.length - 1 && !some_money_in_irreversible && !we_are_in_scen_9 && !we_are_in_scen_10 );
 
                     if ( scen_4 ) {
+                        //goal: 200_000 aka 0.002 btc reversible: 2_010_000 total: 2_010_000
                         console.log( "scenario 4: amt_in_reversible_pledges", 71_000_000_000, "and total", 71_000_000_000 );
+                        var utxos_to_block = [];
                         var i; for ( i=0; i<contributed_utxos.length; i++ ) {
                             var item = contributed_utxos[ i ];
                             var index = i;
@@ -1167,10 +1206,20 @@
                                     scriptPubKey: tapscript.Address.toScriptPubKey( item[ "address" ] ),
                                 }
                             }
-                            if ( `num_${levels[ current_level ]}` in item[ "levels_with_valid_sig" ] ) var sig = item[ "levels_with_valid_sig" ][ `num_${levels[ current_level ]}` ];
-                            else continue;
-                            input.witness = [ sig ];
-                            inputs.push( input );
+                            if ( `num_${levels[ current_level ]}` in item[ "levels_with_valid_sig" ] ) {
+                                var sig = item[ "levels_with_valid_sig" ][ `num_${levels[ current_level ]}` ];
+                                input.witness = [ sig ];
+                                inputs.push( input );
+                            }
+                            else {
+                                utxos_to_block.push( i );
+                                continue;
+                            }
+                        }
+                        var i; for ( i=0; i<contributed_utxos.length; i++ ) {
+                            var item = contributed_utxos[ i ];
+                            var index = i;
+                            if ( utxos_to_block.includes( index ) ) continue;
                             var contribution_txdata = tapscript.Tx.create({
                                 vin: inputs,
                                 vout: [{
@@ -1178,7 +1227,6 @@
                                     scriptPubKey: tapscript.Address.toScriptPubKey( project.project_add ),
                                 }],
                             });
-                            if ( i == contributed_utxos.length - 1 ) console.log( "contribution_txdata:", JSON.stringify( contribution_txdata ) );
                             var tapleaf = item[ "tapleaf" ];
                             var script = item[ "script" ];
                             var cblock = item[ "cblock" ];
@@ -1193,6 +1241,7 @@
                             }
                             contribution_txdata.vin[ index ].witness.unshift( mysig );
                             contribution_txdata.vin[ index ].witness.push( script, cblock );
+                            if ( i == contributed_utxos.length - 1 ) console.log( "contribution_txdata:", JSON.stringify( contribution_txdata ) );
                         }
                         var txhex = tapscript.Tx.encode( contribution_txdata ).hex;
                         console.log( txhex );
@@ -1204,7 +1253,9 @@
                     var scen_5 = ( amt_in_reversible_pledges >= levels[ current_level ] && amt_in_reversible_pledges < levels[ current_level ] + mining_fee_with_no_extra_input && current_level > 0 && current_level < levels.length - 1 && some_money_in_irreversible && !we_are_in_scen_9 && !we_are_in_scen_10 );
 
                     if ( scen_5 ) {
+                        //goal: 200_000 aka 0.002 btc reversible: 210_020 total: 220_020
                         console.log( "scenario 5: amt_in_reversible_pledges", 606_000_020, "and total", 700_000_020 );
+                        var utxos_to_block = [];
                         var i; for ( i=0; i<contributed_utxos.length; i++ ) {
                             var item = contributed_utxos[ i ];
                             var index = i;
@@ -1216,10 +1267,20 @@
                                     scriptPubKey: tapscript.Address.toScriptPubKey( item[ "address" ] ),
                                 }
                             }
-                            if ( `num_${levels[ index_of_amount_i_can_withdraw_if_i_must_step_down ]}` in item[ "levels_with_valid_sig" ] ) var sig = item[ "levels_with_valid_sig" ][ `num_${levels[ index_of_amount_i_can_withdraw_if_i_must_step_down ]}` ];
-                            else continue;
-                            input.witness = [ sig ];
-                            inputs.push( input );
+                            if ( `num_${levels[ index_of_amount_i_can_withdraw_if_i_must_step_down ]}` in item[ "levels_with_valid_sig" ] ) {
+                                var sig = item[ "levels_with_valid_sig" ][ `num_${levels[ index_of_amount_i_can_withdraw_if_i_must_step_down ]}` ];
+                                input.witness = [ sig ];
+                                inputs.push( input );
+                            }
+                            else {
+                                utxos_to_block.push( i );
+                                continue;
+                            }
+                        }
+                        var i; for ( i=0; i<contributed_utxos.length; i++ ) {
+                            var item = contributed_utxos[ i ];
+                            var index = i;
+                            if ( utxos_to_block.includes( index ) ) continue;
                             var contribution_txdata = tapscript.Tx.create({
                                 vin: inputs,
                                 vout: [{
@@ -1227,7 +1288,6 @@
                                     scriptPubKey: tapscript.Address.toScriptPubKey( project.project_add ),
                                 }],
                             });
-                            if ( i == contributed_utxos.length - 1 ) console.log( "contribution_txdata:", JSON.stringify( contribution_txdata ) );
                             var tapleaf = item[ "tapleaf" ];
                             var script = item[ "script" ];
                             var cblock = item[ "cblock" ];
@@ -1242,10 +1302,11 @@
                             }
                             contribution_txdata.vin[ index ].witness.unshift( mysig );
                             contribution_txdata.vin[ index ].witness.push( script, cblock );
+                            if ( i == contributed_utxos.length - 1 ) console.log( "contribution_txdata:", JSON.stringify( contribution_txdata ) );
                         }
                         var txhex = tapscript.Tx.encode( contribution_txdata ).hex;
                         console.log( txhex );
-                        return showModal( `<p>You received ${total_friendly} ${total_ending} total. ${amt_in_reversible_pledges_friendly} ${amt_in_reversible_pledges_ending} of that is in smart contracts and the remainder (${remainder_friendly} ${remainder_ending}) was sent to you directly. Given that you can only withdraw in increments of 1% above your goal AND you don't have enough to pay mining fees for your current goal, you have three options to withdraw your funds (btw all of the following options account for mining fees): (1) you can withdraw ${current_level_friendly} ${current_level_ending} by contributing ${deposit_for_current_level_friendly} ${deposit_for_current_level_ending} to your own fundraiser to pay for mining fees, (2) you can withdraw ${next_level_friendly} ${next_level_ending} by contributing ${deposit_for_next_level_friendly} ${deposit_for_next_level_ending} to your own fundraiser, or, if neither of those seem like good options to you, you can withdraw what you have right now and use part of it to pay the mining fee. But if you withdraw now, the fee will be ${more_extra_friendly} ${more_extra_ending} -- enough to withdraw ${amount_i_can_withdraw_if_i_must_step_down_friendly} ${amount_i_can_withdraw_if_i_must_step_down_ending}, but it's a fee *overpayment* of ${more_overpayment_friendly} ${more_overpayment_ending}.</p><p>What do you want to do?</p><p><button onclick="specialDeposit( ${deposit_for_current_level}, ${current_level} )">Deposit ${deposit_for_current_level_friendly} ${deposit_for_current_level_ending}</button></p><p><button onclick="specialDeposit( ${deposit_for_next_level}, ${next_level} )">Deposit ${deposit_for_next_level_friendly} ${deposit_for_next_level_ending}</button></p><p><button onclick="showModal( 'Broadcast this: ${txhex}' )">Withdraw now</button></p>` );
+                        return showModal( `<p>You received ${total_friendly} ${total_ending} total. ${amt_in_reversible_pledges_friendly} ${amt_in_reversible_pledges_ending} of that is in smart contracts and the remainder (${remainder_friendly} ${remainder_ending}) was sent to you directly. Given that you can only withdraw in increments of 1% above your goal AND you don't have enough to pay mining fees for your current increment, you have three options to withdraw your funds (btw all of the following options account for mining fees): (1) you can withdraw ${current_level_friendly} ${current_level_ending} by contributing ${deposit_for_current_level_friendly} ${deposit_for_current_level_ending} to your own fundraiser to pay for mining fees, (2) you can withdraw ${next_level_friendly} ${next_level_ending} by contributing ${deposit_for_next_level_friendly} ${deposit_for_next_level_ending} to your own fundraiser, or, if neither of those seem like good options to you, you can withdraw what you have right now and use part of it to pay the mining fee. But if you withdraw now, the fee will be ${more_extra_friendly} ${more_extra_ending} -- enough to withdraw ${amount_i_can_withdraw_if_i_must_step_down_friendly} ${amount_i_can_withdraw_if_i_must_step_down_ending}, but it's a fee *overpayment* of ${more_overpayment_friendly} ${more_overpayment_ending}.</p><p>What do you want to do?</p><p><button onclick="specialDeposit( ${deposit_for_current_level}, ${current_level} )">Deposit ${deposit_for_current_level_friendly} ${deposit_for_current_level_ending}</button></p><p><button onclick="specialDeposit( ${deposit_for_next_level}, ${next_level} )">Deposit ${deposit_for_next_level_friendly} ${deposit_for_next_level_ending}</button></p><p><button onclick="showModal( 'Broadcast this: ${txhex}' )">Withdraw now</button></p>` );
                     }
 
                     // scen_6 = Enough in reversible for level X (where X > 0 and there is an X + 1) BUT not enough to pay for level X plus fees AND there is no money in irreversible (0111)
@@ -1253,7 +1314,9 @@
                     var scen_6 = ( amt_in_reversible_pledges >= levels[ current_level ] && amt_in_reversible_pledges < levels[ current_level ] + mining_fee_with_no_extra_input && current_level > 0 && current_level < levels.length - 1 && !some_money_in_irreversible && !we_are_in_scen_9 && !we_are_in_scen_10 );
 
                     if ( scen_6 ) {
+                        //goal: 200_000 aka 0.002 btc reversible: 210_020 total: 210_020
                         console.log( "scenario 6: amt_in_reversible_pledges", 606_000_020, "and total", 606_000_020 );
+                        var utxos_to_block = [];
                         var i; for ( i=0; i<contributed_utxos.length; i++ ) {
                             var item = contributed_utxos[ i ];
                             var index = i;
@@ -1265,10 +1328,20 @@
                                     scriptPubKey: tapscript.Address.toScriptPubKey( item[ "address" ] ),
                                 }
                             }
-                            if ( `num_${levels[ index_of_amount_i_can_withdraw_if_i_must_step_down ]}` in item[ "levels_with_valid_sig" ] ) var sig = item[ "levels_with_valid_sig" ][ `num_${levels[ index_of_amount_i_can_withdraw_if_i_must_step_down ]}` ];
-                            else continue;
-                            input.witness = [ sig ];
-                            inputs.push( input );
+                            if ( `num_${levels[ index_of_amount_i_can_withdraw_if_i_must_step_down ]}` in item[ "levels_with_valid_sig" ] ) {
+                                var sig = item[ "levels_with_valid_sig" ][ `num_${levels[ index_of_amount_i_can_withdraw_if_i_must_step_down ]}` ];
+                                input.witness = [ sig ];
+                                inputs.push( input );
+                            }
+                            else {
+                                utxos_to_block.push( i );
+                                continue;
+                            }
+                        }
+                        var i; for ( i=0; i<contributed_utxos.length; i++ ) {
+                            var item = contributed_utxos[ i ];
+                            var index = i;
+                            if ( utxos_to_block.includes( index ) ) continue;
                             var contribution_txdata = tapscript.Tx.create({
                                 vin: inputs,
                                 vout: [{
@@ -1276,7 +1349,6 @@
                                     scriptPubKey: tapscript.Address.toScriptPubKey( project.project_add ),
                                 }],
                             });
-                            if ( i == contributed_utxos.length - 1 ) console.log( "contribution_txdata:", JSON.stringify( contribution_txdata ) );
                             var tapleaf = item[ "tapleaf" ];
                             var script = item[ "script" ];
                             var cblock = item[ "cblock" ];
@@ -1291,10 +1363,11 @@
                             }
                             contribution_txdata.vin[ index ].witness.unshift( mysig );
                             contribution_txdata.vin[ index ].witness.push( script, cblock );
+                            if ( i == contributed_utxos.length - 1 ) console.log( "contribution_txdata:", JSON.stringify( contribution_txdata ) );
                         }
                         var txhex = tapscript.Tx.encode( contribution_txdata ).hex;
                         console.log( txhex );
-                        return showModal( `<p>You received ${total_friendly} ${total_ending} total. Given that you can only withdraw in increments of 1% above your goal AND you don't have enough to pay mining fees for your current goal, you have three options to withdraw your funds (btw all of the following options account for mining fees): (1) you can withdraw ${current_level_friendly} ${current_level_ending} by contributing ${deposit_for_current_level_friendly} ${deposit_for_current_level_ending} to your own fundraiser to pay for mining fees, (2) you can withdraw ${next_level_friendly} ${next_level_ending} by contributing ${deposit_for_next_level_friendly} ${deposit_for_next_level_ending} to your own fundraiser, or, if neither of those seem like good options to you, you can withdraw what you have right now and use part of it to pay the mining fee. But if you withdraw now, the fee will be ${more_extra_friendly} ${more_extra_ending} -- enough to withdraw ${amount_i_can_withdraw_if_i_must_step_down_friendly} ${amount_i_can_withdraw_if_i_must_step_down_ending}, but it's a fee *overpayment* of ${more_overpayment_friendly} ${more_overpayment_ending}.</p><p>What do you want to do?</p><p><button onclick="specialDeposit( ${deposit_for_current_level}, ${current_level}, ${levels} )">Deposit ${deposit_for_current_level_friendly} ${deposit_for_current_level_ending}</button></p><p><button onclick="specialDeposit( ${deposit_for_next_level}, ${next_level} )">Deposit ${deposit_for_next_level_friendly} ${deposit_for_next_level_ending}</button></p><p><button onclick="showModal( 'Broadcast this: ${txhex}' )">Withdraw now</button></p>` );
+                        return showModal( `<p>You received ${total_friendly} ${total_ending} total. Given that you can only withdraw in increments of 1% above your goal AND you don't have enough to pay mining fees for your current increment, you have three options to withdraw your funds (btw all of the following options account for mining fees): (1) you can withdraw ${current_level_friendly} ${current_level_ending} by contributing ${deposit_for_current_level_friendly} ${deposit_for_current_level_ending} to your own fundraiser to pay for mining fees, (2) you can withdraw ${next_level_friendly} ${next_level_ending} by contributing ${deposit_for_next_level_friendly} ${deposit_for_next_level_ending} to your own fundraiser, or, if neither of those seem like good options to you, you can withdraw what you have right now and use part of it to pay the mining fee. But if you withdraw now, the fee will be ${more_extra_friendly} ${more_extra_ending} -- enough to withdraw ${amount_i_can_withdraw_if_i_must_step_down_friendly} ${amount_i_can_withdraw_if_i_must_step_down_ending}, but it's a fee *overpayment* of ${more_overpayment_friendly} ${more_overpayment_ending}.</p><p>What do you want to do?</p><p><button onclick="specialDeposit( ${deposit_for_current_level}, ${current_level}, ${levels} )">Deposit ${deposit_for_current_level_friendly} ${deposit_for_current_level_ending}</button></p><p><button onclick="specialDeposit( ${deposit_for_next_level}, ${next_level} )">Deposit ${deposit_for_next_level_friendly} ${deposit_for_next_level_ending}</button></p><p><button onclick="showModal( 'Broadcast this: ${txhex}' )">Withdraw now</button></p>` );
                     }
 
                     // scen_7 = Enough in reversible for level X (where X > 0 and there is NO X + 1) BUT not enough to pay for level X plus fees DOUBLE BUT there is some money in irreversible (0100)
@@ -1302,7 +1375,9 @@
                     var scen_7 = ( amt_in_reversible_pledges >= levels[ current_level ] && amt_in_reversible_pledges < levels[ current_level ] + mining_fee_with_no_extra_input && current_level > 0 && current_level == levels.length - 1 && some_money_in_irreversible && !we_are_in_scen_9 && !we_are_in_scen_10 );
 
                     if ( scen_7 ) {
+                        //goal: 200_000 aka 0.002 btc reversible: 2_000_020 total: 2_010_020
                         console.log( "scenario 7: amt_in_reversible_pledges", 6_000_000_020, "and total", 6_000_000_120 );
+                        var utxos_to_block = [];
                         var i; for ( i=0; i<contributed_utxos.length; i++ ) {
                             var item = contributed_utxos[ i ];
                             var index = i;
@@ -1314,10 +1389,20 @@
                                     scriptPubKey: tapscript.Address.toScriptPubKey( item[ "address" ] ),
                                 }
                             }
-                            if ( `num_${levels[ index_of_amount_i_can_withdraw_if_i_must_step_down ]}` in item[ "levels_with_valid_sig" ] ) var sig = item[ "levels_with_valid_sig" ][ `num_${levels[ index_of_amount_i_can_withdraw_if_i_must_step_down ]}` ];
-                            else continue;
-                            input.witness = [ sig ];
-                            inputs.push( input );
+                            if ( `num_${levels[ index_of_amount_i_can_withdraw_if_i_must_step_down ]}` in item[ "levels_with_valid_sig" ] ) {
+                                var sig = item[ "levels_with_valid_sig" ][ `num_${levels[ index_of_amount_i_can_withdraw_if_i_must_step_down ]}` ];
+                                input.witness = [ sig ];
+                                inputs.push( input );
+                            }
+                            else {
+                                utxos_to_block.push( i );
+                                continue;
+                            }
+                        }
+                        var i; for ( i=0; i<contributed_utxos.length; i++ ) {
+                            var item = contributed_utxos[ i ];
+                            var index = i;
+                            if ( utxos_to_block.includes( index ) ) continue;
                             var contribution_txdata = tapscript.Tx.create({
                                 vin: inputs,
                                 vout: [{
@@ -1325,7 +1410,6 @@
                                     scriptPubKey: tapscript.Address.toScriptPubKey( project.project_add ),
                                 }],
                             });
-                            if ( i == contributed_utxos.length - 1 ) console.log( "contribution_txdata:", JSON.stringify( contribution_txdata ) );
                             var tapleaf = item[ "tapleaf" ];
                             var script = item[ "script" ];
                             var cblock = item[ "cblock" ];
@@ -1340,6 +1424,7 @@
                             }
                             contribution_txdata.vin[ index ].witness.unshift( mysig );
                             contribution_txdata.vin[ index ].witness.push( script, cblock );
+                            if ( i == contributed_utxos.length - 1 ) console.log( "contribution_txdata:", JSON.stringify( contribution_txdata ) );
                         }
                         var txhex = tapscript.Tx.encode( contribution_txdata ).hex;
                         console.log( txhex );
@@ -1351,7 +1436,9 @@
                     var scen_8 = ( amt_in_reversible_pledges >= levels[ current_level ] && amt_in_reversible_pledges < levels[ current_level ] + mining_fee_with_no_extra_input && current_level > 0 && current_level == levels.length - 1 && !some_money_in_irreversible && !we_are_in_scen_9 && !we_are_in_scen_10 );
 
                     if ( scen_8 ) {
+                        //goal: 200_000 aka 0.002 btc reversible: 2_000_020 total: 2_000_020
                         console.log( "scenario 8: amt_in_reversible_pledges", 6_000_000_020, "and total", 6_000_000_020 );
+                        var utxos_to_block = [];
                         var i; for ( i=0; i<contributed_utxos.length; i++ ) {
                             var item = contributed_utxos[ i ];
                             var index = i;
@@ -1363,10 +1450,20 @@
                                     scriptPubKey: tapscript.Address.toScriptPubKey( item[ "address" ] ),
                                 }
                             }
-                            if ( `num_${levels[ index_of_amount_i_can_withdraw_if_i_must_step_down ]}` in item[ "levels_with_valid_sig" ] ) var sig = item[ "levels_with_valid_sig" ][ `num_${levels[ index_of_amount_i_can_withdraw_if_i_must_step_down ]}` ];
-                            else continue;
-                            input.witness = [ sig ];
-                            inputs.push( input );
+                            if ( `num_${levels[ index_of_amount_i_can_withdraw_if_i_must_step_down ]}` in item[ "levels_with_valid_sig" ] ) {
+                                var sig = item[ "levels_with_valid_sig" ][ `num_${levels[ index_of_amount_i_can_withdraw_if_i_must_step_down ]}` ];
+                                input.witness = [ sig ];
+                                inputs.push( input );
+                            }
+                            else {
+                                utxos_to_block.push( i );
+                                continue;
+                            }
+                        }
+                        var i; for ( i=0; i<contributed_utxos.length; i++ ) {
+                            var item = contributed_utxos[ i ];
+                            var index = i;
+                            if ( utxos_to_block.includes( index ) ) continue;
                             var contribution_txdata = tapscript.Tx.create({
                                 vin: inputs,
                                 vout: [{
@@ -1374,7 +1471,6 @@
                                     scriptPubKey: tapscript.Address.toScriptPubKey( project.project_add ),
                                 }],
                             });
-                            if ( i == contributed_utxos.length - 1 ) console.log( "contribution_txdata:", JSON.stringify( contribution_txdata ) );
                             var tapleaf = item[ "tapleaf" ];
                             var script = item[ "script" ];
                             var cblock = item[ "cblock" ];
@@ -1389,6 +1485,7 @@
                             }
                             contribution_txdata.vin[ index ].witness.unshift( mysig );
                             contribution_txdata.vin[ index ].witness.push( script, cblock );
+                            if ( i == contributed_utxos.length - 1 ) console.log( "contribution_txdata:", JSON.stringify( contribution_txdata ) );
                         }
                         var txhex = tapscript.Tx.encode( contribution_txdata ).hex;
                         console.log( txhex );
@@ -1400,8 +1497,9 @@
                     var scen_9 = ( we_are_in_scen_9 || ( amt_in_reversible_pledges >= levels[ current_level ] && amt_in_reversible_pledges < levels[ current_level ] + mining_fee_with_no_extra_input && current_level == 0 && some_money_in_irreversible ) );
 
                     if ( scen_9 ) {
+                        //goal: 200_000 aka 0.002 btc reversible: 200_020 total: 200_820
                         console.log( "scenario 9: amt_in_reversible_pledges", 600_000_020, "and total", 600_000_120 );
-                        return showModal( `<p>You received ${total_friendly} ${total_ending} total. ${amt_in_reversible_pledges_friendly} ${amt_in_reversible_pledges_ending} of that is in smart contracts and the remainder (${remainder_friendly} ${remainder_ending}) was sent to you directly. Given that you can only withdraw in increments of 1% above your goal AND you don't have enough to pay mining fees for your current goal, you have two options to withdraw your funds (btw both of the following options account for mining fees): you can withdraw ${current_level_friendly} ${current_level_ending} by contributing ${deposit_for_current_level_friendly} ${deposit_for_current_level_ending} to your own fundraiser to pay for mining fees, or you can withdraw ${next_level_friendly} ${next_level_ending} by contributing ${deposit_for_next_level_friendly} ${deposit_for_next_level_ending} to your own fundraiser.</p><p>What do you want to do?</p><p><button onclick="specialDeposit( ${deposit_for_current_level}, ${current_level}, ${levels} )">Deposit ${deposit_for_current_level_friendly} ${deposit_for_current_level_ending}</button></p><p><button onclick="specialDeposit( ${deposit_for_next_level}, ${next_level} )">Deposit ${deposit_for_next_level_friendly} ${deposit_for_next_level_ending}</button></p>` );
+                        return showModal( `<p>You received ${total_friendly} ${total_ending} total. ${amt_in_reversible_pledges_friendly} ${amt_in_reversible_pledges_ending} of that is in smart contracts and the remainder (${remainder_friendly} ${remainder_ending}) was sent to you directly. Given that you can only withdraw in increments of 1% above your goal AND you don't have enough to pay mining fees for your current increment, you have two options to withdraw your funds (btw both of the following options account for mining fees): you can withdraw ${current_level_friendly} ${current_level_ending} by contributing ${deposit_for_current_level_friendly} ${deposit_for_current_level_ending} to your own fundraiser to pay for mining fees, or you can withdraw ${next_level_friendly} ${next_level_ending} by contributing ${deposit_for_next_level_friendly} ${deposit_for_next_level_ending} to your own fundraiser.</p><p>What do you want to do?</p><p><button onclick="specialDeposit( ${deposit_for_current_level}, ${current_level}, ${levels} )">Deposit ${deposit_for_current_level_friendly} ${deposit_for_current_level_ending}</button></p><p><button onclick="specialDeposit( ${deposit_for_next_level}, ${next_level} )">Deposit ${deposit_for_next_level_friendly} ${deposit_for_next_level_ending}</button></p>` );
                     }
 
                     // scen_10 = Enough in reversible for level X (where X == 0) but not enough to pay for level X plus fees AND there is no money in irreversible (0001 & 0011) <-- the first of those is impossible so it is really just 0011
@@ -1409,8 +1507,9 @@
                     var scen_10 = ( we_are_in_scen_10 || ( amt_in_reversible_pledges >= levels[ current_level ] && amt_in_reversible_pledges < levels[ current_level ] + mining_fee_with_no_extra_input && current_level == 0 && !some_money_in_irreversible ) );
 
                     if ( scen_10 ) {
+                        //goal: 200_000 aka 0.002 btc reversible: 200_020 total: 200_020
                         console.log( "scenario 10: amt_in_reversible_pledges", 600_000_020, "and total", 600_000_020 );
-                        return showModal( `<p>You received ${total_friendly} ${total_ending} total. Given that you can only withdraw in increments of 1% above your goal AND you don't have enough to pay mining fees for your current goal, you have two options to withdraw your funds (btw both of the following options account for mining fees): you can withdraw ${current_level_friendly} ${current_level_ending} by contributing ${deposit_for_current_level_friendly} ${deposit_for_current_level_ending} to your own fundraiser to pay for mining fees, or you can withdraw ${next_level_friendly} ${next_level_ending} by contributing ${deposit_for_next_level_friendly} ${deposit_for_next_level_ending} to your own fundraiser.</p><p>What do you want to do?</p><p><button onclick="specialDeposit( ${deposit_for_current_level}, ${current_level} )">Deposit ${deposit_for_current_level_friendly} ${deposit_for_current_level_ending}</button></p><p><button onclick="specialDeposit( ${deposit_for_next_level}, ${next_level} )">Deposit ${deposit_for_next_level_friendly} ${deposit_for_next_level_ending}</button></p>` );
+                        return showModal( `<p>You received ${total_friendly} ${total_ending} total. Given that you can only withdraw in increments of 1% above your goal AND you don't have enough to pay mining fees for your current increment, you have two options to withdraw your funds (btw both of the following options account for mining fees): you can withdraw ${current_level_friendly} ${current_level_ending} by contributing ${deposit_for_current_level_friendly} ${deposit_for_current_level_ending} to your own fundraiser to pay for mining fees, or you can withdraw ${next_level_friendly} ${next_level_ending} by contributing ${deposit_for_next_level_friendly} ${deposit_for_next_level_ending} to your own fundraiser.</p><p>What do you want to do?</p><p><button onclick="specialDeposit( ${deposit_for_current_level}, ${current_level} )">Deposit ${deposit_for_current_level_friendly} ${deposit_for_current_level_ending}</button></p><p><button onclick="specialDeposit( ${deposit_for_next_level}, ${next_level} )">Deposit ${deposit_for_next_level_friendly} ${deposit_for_next_level_ending}</button></p>` );
                     }
                 }
                 checkForUtxos();
@@ -1727,8 +1826,7 @@
                         locktime: project.project_end + 144,
                     });
                     var txhex = tapscript.Tx.encode( recovery_txdata ).hex;
-                    //TODO: uncomment the line below
-                    // setTimeout( async () => {var txid = await pushBTCpmt( txhex, "" );console.log( "autorefund attempted!", txid, txhex );}, Math.floor( Math.random() * 1000 ) );
+                    setTimeout( async () => {var txid = await pushBTCpmt( txhex, "" );console.log( "autorefund attempted!", txid, txhex );}, Math.floor( Math.random() * 1000 ) );
                 } else {
                     if ( !!json[ "recovery" ] && !!json[ "recovery_fee" ] ) console.log( `no autorefund right now because it is only block ${lastblock} and it needs to be block ${project.project_end + 144} -- which is in ${project.project_end + 144 - lastblock} blocks` );
                 }
@@ -1916,7 +2014,7 @@
                 sessionStorage.removeItem( "modal_cleared" );
                 sessionStorage.removeItem( "comment" );
                 showModal( `
-                    <p style="font-weight: bold;">Pledge detected! Enter a comment to send with it (optional)</p>
+                    <p style="font-weight: bold;">Pledge detected! Enter a public comment to send with it (optional)</p>
                     <p><input style="max-width: 90%" class="modal_comment"></p>
                     <p>Chars left: <span class="modal_comment_chars_left">140</span></p>
                     <p><button class="submit_modal_comment" onclick="sessionStorage[ 'comment' ] = $( '.modal_comment' ).value;sessionStorage[ 'modal_cleared' ] = true;showModal( '<p>loading...</p>' );">Submit</button></p>
@@ -1958,7 +2056,6 @@
                         }
                         var signedEvent = await nostr_image_host.getSignedEvent( event, privKey );
                         socket.send( JSON.stringify([ "EVENT", signedEvent ]) );
-                        console.log( "contribution id:", signedEvent.id );
                         await nostr_image_host.waitSomeSeconds( 2 );
                         socket.close();
                         showModal( '<p>Success! Your contribution has been recorded</p>' );
@@ -1973,7 +2070,6 @@
                     }
                     var signedEvent = await nostr_image_host.getSignedEvent( event, privKey );
                     socket.send( JSON.stringify([ "EVENT", signedEvent ]) );
-                    console.log( "contribution id:", signedEvent.id );
                     await nostr_image_host.waitSomeSeconds( 2 );
                     socket.close();
                     showModal( '<p>Success! Your contribution has been recorded</p>' );
@@ -2026,8 +2122,10 @@
                 utxos.forEach( item => simplified_utxos.push( `${item[ "txid" ]}:${item[ "vout" ]}` ) );
                 var new_utxo = await utxoloop( address, simplified_utxos );
                 new_utxo = new_utxo.split( ":" );
+                var utxos_to_block = [];
                 var i; for ( i=0; i<contributed_utxos.length; i++ ) {
                     var item = contributed_utxos[ i ];
+                    var index = i;
                     var input = {
                         txid: item[ "txid" ],
                         vout: item[ "vout" ],
@@ -2036,11 +2134,15 @@
                             scriptPubKey: tapscript.Address.toScriptPubKey( item[ "address" ] ),
                         }
                     }
-                    var sig_to_get = goal_level - 1;
-                    var sigs_array = downloaded_sigs[ `${item[ "txid" ]}${item[ "vout" ]}_2` ];
-                    var sig = sigs_array[ sig_to_get ];
-                    input.witness = [ sig ];
-                    inputs.push( input );
+                    if ( `num_${levels[ goal_level ]}` in item[ "levels_with_valid_sig" ] ) {
+                        var sig = item[ "levels_with_valid_sig" ][ `num_${levels[ goal_level ]}` ];
+                        input.witness = [ sig ];
+                        inputs.push( input );
+                    }
+                    else {
+                        utxos_to_block.push( i );
+                        continue;
+                    }
                 }
                 var last_input = {
                     txid: new_utxo[ 0 ],
@@ -2051,16 +2153,17 @@
                     }
                 }
                 inputs.push( last_input );
-                var contribution_txdata = tapscript.Tx.create({
-                    vin: inputs,
-                    vout: [{
-                        value: levels[ goal_level ],
-                        scriptPubKey: tapscript.Address.toScriptPubKey( project.project_add ),
-                    }],
-                });
                 var i; for ( i=0; i<contributed_utxos.length; i++ ) {
                     var item = contributed_utxos[ i ];
                     var index = i;
+                    if ( utxos_to_block.includes( index ) ) continue;
+                    var contribution_txdata = tapscript.Tx.create({
+                        vin: inputs,
+                        vout: [{
+                            value: levels[ goal_level ],
+                            scriptPubKey: tapscript.Address.toScriptPubKey( project.project_add ),
+                        }],
+                    });
                     var tapleaf = item[ "tapleaf" ];
                     var script = item[ "script" ];
                     var cblock = item[ "cblock" ];
@@ -2068,17 +2171,19 @@
                     var their_sig = contribution_txdata.vin[ index ].witness[ 0 ];
                     var sighash = await tapscript.Signer.taproot.hash( contribution_txdata, index, { extension: tapleaf, sigflag: 128 | 1 } ).hex;
                     var isValid = await nobleSecp256k1.schnorr.verify( their_sig.substring( 0, 128 ), sighash, their_key );
+                    var mysig = tapscript.Signer.taproot.sign( btc_sec, contribution_txdata, index, { extension: tapleaf } ).hex;
                     if ( !isValid ) {
                         contribution_txdata.vin.splice( i, 1 );
                         continue;
                     }
-                    var mysig = tapscript.Signer.taproot.sign( btc_sec, contribution_txdata, index, { extension: tapleaf } ).hex;
                     contribution_txdata.vin[ index ].witness.unshift( mysig );
                     contribution_txdata.vin[ index ].witness.push( script, cblock );
+                    if ( i == contributed_utxos.length - 1 ) console.log( "contribution_txdata:", JSON.stringify( contribution_txdata ) );
                 }
                 var last_sig = tapscript.Signer.taproot.sign( tseckey_keypath, contribution_txdata, contribution_txdata.vin.length - 1 ).hex;
                 contribution_txdata.vin[ contribution_txdata.vin.length - 1 ].witness = [ last_sig ];
                 var txhex = tapscript.Tx.encode( contribution_txdata ).hex;
+                console.log( txhex );
                 showModal( `<p>Broadcast this:</p><p>${txhex}</p>` );
             }
             async function pushBTCpmt( rawtx, network ) {
@@ -2182,12 +2287,6 @@
                 var returnable = await isResponseReady();
                 return returnable;
             }
-            var fundraiserWasASuccess = () => {
-                // if ( !funds_spent_cooperatively ) return;
-                // $( '.raised' ).innerText = $( '.goal' ).innerText;
-                // $( '.percent_funded' ).innerText = '100%';
-                // console.log( "fundraiser_was_a_success", funds_spent_cooperatively );
-            }
             var checkForUtxos = async () => {
                 var script = [ 0, btc_pub, 'OP_CHECKSIGADD', project.project_key, 'OP_CHECKSIGADD', 2, 'OP_EQUAL' ];
                 var tapleaf = tapscript.Tap.encodeScript( script );
@@ -2200,6 +2299,7 @@
                 if ( contributor_utxos.length ) $( '.revoke_button' ).classList.remove( "hidden" );
             }
             var prepLevels = async () => {
+                levels = [];
                 var i; for ( i=0; i<901; i++ ) {
                     var ten_percent = Math.floor( ( project.project_gol * .01 ) );
                     var extra = ten_percent * i;
@@ -2214,7 +2314,7 @@
                 });
                 showModal( `
                     <p>Preparing to claim funds</p>
-                    <h2>Progress bar <span id="goal" style="font-size: .8em; font-weight: normal;"></span></h2>
+                    <h2>Progress bar (1/2) <span id="goal" style="font-size: .8em; font-weight: normal;"></span></h2>
                     <div class="progressOutline" style="height: 2em; border: 1px solid grey; border-radius: 25px; overflow: hidden;">
                         <div class="progressBar" style="height: 2em; background-color: #61eb34; width: 0%; transition: width 1s;">
                         </div>
@@ -2232,20 +2332,20 @@
                     sigs_array.unshift( item[ "main_sigs" ][ 1 ] );
                     var percent = Number( ( ( Number( i + 1 ) / contributed_utxos.length ) * 100 ).toFixed( 2 ) );
                     if ( $( '.progressBar' ) ) $( '.progressBar' ).style.width = String( percent ) + "%";
+                    if ( percent > 99 ) await nostr_image_host.waitSomeSeconds( 1 );
                 }
-                showModal( `
-                    <p>Preparing to claim funds</p>
-                    <h2>Progress bar <span id="goal" style="font-size: .8em; font-weight: normal;"></span></h2>
-                    <div class="progressOutline" style="height: 2em; border: 1px solid grey; border-radius: 25px; overflow: hidden;">
-                        <div class="progressBar" style="height: 2em; background-color: #61eb34; width: 0%; transition: width 1s;">
-                        </div>
-                    </div>
-                    <div class="status">Validating signatures</div>
-                ` );
                 var valid_levels = [];
                 var j; for ( j=0; j<levels.length; j++ ) {
                     var percent = Number( ( ( Number( j + 1 ) / levels.length ) * 100 ).toFixed( 2 ) );
-                    if ( $( '.progressBar' ) ) $( '.progressBar' ).style.width = String( percent ) + "%";
+                    showModal( `
+                        <p>Preparing to claim funds</p>
+                        <h2>Progress bar (2/2) <span id="goal" style="font-size: .8em; font-weight: normal;"></span></h2>
+                        <div class="progressOutline" style="height: 2em; border: 1px solid grey; border-radius: 25px; overflow: hidden;">
+                            <div class="progressBar" style="height: 2em; background-color: #61eb34; width: ${percent}%; transition: width 1s;">
+                            </div>
+                        </div>
+                        <div class="status">Validating signatures</div>
+                    ` );
                     contribution_txdata.vin = [];
                     var amt_contributed_for_this_level = 0;
                     var i; for ( i=0; i<contributed_utxos.length; i++ ) {
@@ -2340,13 +2440,18 @@
                 <div class="page_content">
                     <div class="welcome_page">
                         <p>
-                            Welcome to Semaphore. Please use the stacker news sub below to find a list of crowdfunding projects, or make your own project.
+                            Welcome to Semaphore.
                         </p>
-                        <a href="https://stacker.news/" target="_blank" style="color: blue; text-decoration: underline; cursor: pointer;">
-                            <h2>
-                                Find projects
-                            </h2>
-                        </a>
+                        <div class="hidden">
+                            <p>
+                                Please use the stacker news sub below to find a list of crowdfunding projects, or make your own project.
+                            </p>
+                            <a href="https://stacker.news/" target="_blank" style="color: blue; text-decoration: underline; cursor: pointer;">
+                                <h2>
+                                    Find projects
+                                </h2>
+                            </a>
+                        </div>
                         <h2 class="log_into_project" onclick="login()" style="color: blue; text-decoration: underline; cursor: pointer;">
                             View project you created or contributed to
                         </h2>
@@ -2417,7 +2522,7 @@
             $( '.project_end' ).value = "";
             $( '.submit_new_project' ).onclick = async () => {
                 showModal( `
-                    <p>Creating your project, please wait, this usually takes 15 seconds</p>
+                    <p>Creating your project, please wait</p>
                     <h2>Progress bar <span id="goal" style="font-size: .8em; font-weight: normal;"></span></h2>
                     <div class="progressOutline" style="height: 2em; border: 1px solid grey; border-radius: 25px; overflow: hidden;">
                         <div class="progressBar" style="height: 2em; background-color: #61eb34; width: 0%; transition: width 1s;">
@@ -2462,6 +2567,7 @@
                         var sprj = nostr_image_host.hexToBech32( "sprj", id + nostr_image_host.textToHex( relay ) );
                         var percent = Number( ( ( part / whole ) * 100 ).toFixed( 2 ) );
                         if ( $( '.progressBar' ) ) $( '.progressBar' ).style.width = String( percent ) + "%";
+                        if ( percent > 99 ) await nostr_image_host.waitSomeSeconds( 1 );
                         var url = window.location.href;
                         if ( url.includes( "#" ) ) url = url.substring( 0, url.indexOf( "#" ) );
                         url = url + `?fundraiser=${sprj}`;
