@@ -1,2 +1,2 @@
-# semaphore
+# Semaphore
 Crowdfunding with bitcoin
