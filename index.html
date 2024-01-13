@@ -373,18 +373,16 @@
         </script>
         <script>
             //fundraiser: file:///home/supertestnet/semaphore/index.html?fundraiser=nimg17ff779vkfuau77xpdy7l2wrvk62t6hr6q304qqpr6mkrn2phejg8wumn8ghj7mn0wd68yat99e3k7mgv6u6hj
-            //contribution id: efba437c53a5dd13b6c377e9636971c123b80622e790a3d1b56faebf4cd65fe3 -- to nostrue.com
-            // var btc_sec = "bb".repeat( 32 );
             var btc_sec = nostr_image_host.bytesToHex( nobleSecp256k1.utils.randomPrivateKey() );
-            // var btc_sec = "662c2ec7a1c447f137d4cc4bf58ae6e70f96a85ca5d78a50ed042bf9c5fd9f60";
             var btc_pub = nobleSecp256k1.getPublicKey( btc_sec, true ).substring( 2 );
             var contributor_utxos;
             var contributed_utxos = [];
             var fundraiser_addy;
             var timeloop_seconds;
+            var relay = "wss://nostrue.com";
+            if ( $_GET[ "relay" ] ) relay = $_GET[ "relay" ];
             var socket;
             var project;
-            var relay = "wss://nostrue.com";
             var btc_net = "mutinynet.com";
             var used_txid_and_vouts = [];
             var upload_data = [];
@@ -416,12 +414,7 @@
                 socket.send( JSON.stringify([ "EVENT", signedEvent ]) );
                 await nostr_image_host.waitSomeSeconds( 2 );
                 socket.close();
-                var backup_file_contents = {
-                    privkey: btc_sec,
-                    fundraiser_id: $_GET[ "fundraiser" ],
-                }
-                var fileName = `semaphore_contributor_${$_GET[ "fundraiser" ]}_backup.json`;
-                var html = `<p>Success! Your contribution has been recorded</p><p>You may receive an automatic refund if the fundraiser does not meet its goal but this is not guaranteed. Download and store <span style="color: blue; text-decoration: underline; cursor: pointer;" onclick='saveData( ${JSON.stringify( backup_file_contents )}, "${fileName}" );'>your backup file</span> so you can upload it later using the "Log in" button and broadcast your own refund.</p>`;
+                var html = `<p>Success! Your contribution has been recorded</p>`;
                 checkForUtxos();
                 showModal( html );
             }
@@ -536,12 +529,14 @@
                 // var [ tseckey_script_path ] = tapscript.Tap.getSecKey( btc_sec, { tree: [script].map( s => tapscript.Tap.encodeScript( s ) ), target: tapleaf });
                 var [ tpubkey, cblock ] = tapscript.Tap.getPubKey( btc_pub, { target: tapleaf });
                 var address = tapscript.Address.p2tr.fromPubKey( tpubkey, 'testnet' );
-                $( ".pledge_button" ).onclick = async () => {
+                $( '.pledge_button' ).onclick = async () => {
                     var main_sigs = [];
                     var extra_sigs = [];
                     sessionStorage.removeItem( "modal_cleared" );
                     sessionStorage.removeItem( "reversible" );
-                    show_pledge_options();
+                    console.log( "current blockheight:", current_blockheight, "project_end:", project.project_end, "the project ended:", current_blockheight >= project.project_end );
+                    if ( funds_spent_cooperatively || current_blockheight >= project.project_end ) showIrreversible();
+                    else show_pledge_options();
                     await getNote( "modal_cleared" );
                     if ( !( "reversible" in sessionStorage ) ) return;
                     sessionStorage.removeItem( "reversible" );
@@ -555,12 +550,22 @@
                     await getNote( "modal_cleared" );
                     var recovery = await getNote( "recovery" );
                     if ( !isValidAddress( recovery ) ) return showModal( `Invalid contribution due to bad recovery address. Please try again` );
+                    var backup_file_contents = {
+                        privkey: btc_sec,
+                        fundraiser_id: $_GET[ "fundraiser" ],
+                    }
+                    var fileName = `semaphore_contributor_${$_GET[ "fundraiser" ]}_backup.json`;
+                    var html = `<p>An automatic refund may occur if the fundraiser does not reach its goal. However, automatic refunds are not guaranteed to work. Therefore, it is paramount that you download and store <span style="color: blue; text-decoration: underline; cursor: pointer;" onclick='saveData( ${JSON.stringify( backup_file_contents )}, "${fileName}" );'>your backup file</span> so that you can upload it later using the "Log in" button and broadcast your own refund if necessary. Please please please, do not proceed without backing up your data, or you are at risk of fund loss. If for any reason Semaphore stops working, you will need this file to recover your funds.</p><p><button onclick="$( '.x_modal' ).click();">I've backed up my data, continue</button></p>`;
+                    sessionStorage.removeItem( "modal_cleared" );
+                    showModal( html, true );
+                    await getNote( "modal_cleared" );
                     var url = "bitcoin:" + address;
                     var a = document.createElement( "a" );
                     a.href = url;
                     a.target = "_blank";
                     a.append( createQR( url.toUpperCase() ) );
                     var prep_div = document.createElement( "div" );
+                    prep_div.innerHTML = `<p>Please send your contribution here</p>`;
                     prep_div.append( a );
                     var div_html = prep_div.innerHTML + `<p>${address}</p>`;
                     showModal( div_html );
@@ -707,7 +712,7 @@
                     if ( !sats_per_byte ) return showModal( "You entered an invalid fee rate. You must enter a number greater than 0, such as 5, 10, or 25. Please try again." );
                     spendCoins( destino, sats_per_byte );
                 }
-                $( ".claim_button" ).onclick = async () => {
+                $( '.claim_button' ).onclick = async () => {
                     showModal( `<p>loading...</p>` );
                     var inputs = [];
                     var amt_in_reversible_pledges = 0;
@@ -721,7 +726,8 @@
                         total = total + string_of_zeros;
                     }
                     total = Number( total );
-                    if ( !contributed_utxos.length && total ) return showModal( `There are no new contributions for you to claim` );
+                    if ( !contributed_utxos.length && total && funds_spent_cooperatively ) return showModal( `There are no new contributions for you to claim` );
+                    if ( !contributed_utxos.length && total && !funds_spent_cooperatively && !amt_in_reversible_pledges ) return showModal( `<p>All the money you've received was sent directly to your bitcoin address at ${project.project_add}</p><p>Consequently, there is no need to claim it, it is already in your wallet</p>` );
                     if ( !contributed_utxos.length ) return showModal( `There are no contributions for you to claim` );
                     // the following three lines are for testing the various scenarios
                     // amt_in_reversible_pledges = 20_000;
@@ -916,7 +922,9 @@
                         }
                     }
 
-                    if ( total < levels[ current_level ] && current_level == 0 ) return showModal( `<p>Be patient! You need ${goal_minus_total_friendly} more ${goal_minus_total_ending} before you can claim your funds</p>` );
+                    var msg = `<p>Be patient! You need ${goal_minus_total_friendly} more ${goal_minus_total_ending} before you can claim your funds</p>`;
+
+                    if ( total < levels[ current_level ] && current_level == 0 ) return showModal( msg );
 
                     var we_are_in_scen_9;
                     var we_are_in_scen_10;
@@ -1511,6 +1519,10 @@
                         console.log( "scenario 10: amt_in_reversible_pledges", 600_000_020, "and total", 600_000_020 );
                         return showModal( `<p>You received ${total_friendly} ${total_ending} total. Given that you can only withdraw in increments of 1% above your goal AND you don't have enough to pay mining fees for your current increment, you have two options to withdraw your funds (btw both of the following options account for mining fees): you can withdraw ${current_level_friendly} ${current_level_ending} by contributing ${deposit_for_current_level_friendly} ${deposit_for_current_level_ending} to your own fundraiser to pay for mining fees, or you can withdraw ${next_level_friendly} ${next_level_ending} by contributing ${deposit_for_next_level_friendly} ${deposit_for_next_level_ending} to your own fundraiser.</p><p>What do you want to do?</p><p><button onclick="specialDeposit( ${deposit_for_current_level}, ${current_level} )">Deposit ${deposit_for_current_level_friendly} ${deposit_for_current_level_ending}</button></p><p><button onclick="specialDeposit( ${deposit_for_next_level}, ${next_level} )">Deposit ${deposit_for_next_level_friendly} ${deposit_for_next_level_ending}</button></p>` );
                     }
+
+                    //the final unaccounted-for situation (I think) is where the fundraiser has enough money in total to withdraw but
+                    //not enough of that is in reversible pledges to do anything -- account for this
+                    return showModal( `<p>You received ${total_friendly} ${total_ending} total. ${amt_in_reversible_pledges_friendly} ${amt_in_reversible_pledges_ending} of that is in smart contracts and the remainder (${remainder_friendly} ${remainder_ending}) was sent to you directly. Therefore, you can withdraw ${current_level_friendly} ${current_level_ending} only by contributing ${deposit_for_current_level_friendly} ${deposit_for_current_level_ending} to your own fundraiser to get the amount in smart contracts "up to" your goal and pay for mining fees.</p><p>Click the button below to do that.</p><p><button onclick="specialDeposit( ${deposit_for_current_level}, ${current_level} )">Deposit ${deposit_for_current_level_friendly} ${deposit_for_current_level_ending}</button></p>` );
                 }
                 checkForUtxos();
             }
@@ -1994,6 +2006,7 @@
                 a.target = "_blank";
                 a.append( createQR( url.toUpperCase() ) );
                 var prep_div = document.createElement( "div" );
+                prep_div.innerHTML = `<p>Please send your contribution here</p>`;
                 prep_div.append( a );
                 var div_html = prep_div.innerHTML + `<p>${address}</p>`;
                 showModal( div_html );
@@ -2387,6 +2400,7 @@
                 });
                 if ( next_level ) valid_levels.push( next_level );
                 levels = valid_levels;
+                if ( !levels.length ) levels.push( project.project_gol );
             }
             var downloader = async file_id => {
                 var b64;
