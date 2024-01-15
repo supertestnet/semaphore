@@ -31,6 +31,7 @@ Alternative fundraising platforms like geyser.fund don't let contributors take t
 If you have enough to make up the difference just contribute your own funds to the fundraiser so that you *do* have enough. That's perfectly acceptable in my opinion and I hope it is clear to contributors that the recipient can contribute too.
 
 # How does this differ from Lighthouse by Mike Hearn?
+The core idea is the same, but:
 
 - To get utxo data, Lighthouse used a p2p network bootstrapped via Mike Hearn's bitcoinXT software. I just use https://mempool.space which is a more centralized way to do it
 - Lighthouse assumed users keep funds in the built in wallet and then it marked some of them as "do not spend" if they were designated for a pledge. I just have users send the exact amount they want to contribute and don't assume users keep any additional funds in Semaphore
