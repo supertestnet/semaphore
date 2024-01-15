@@ -2594,7 +2594,8 @@
                         if ( percent > 99 ) await nostr_image_host.waitSomeSeconds( 1 );
                         var url = window.location.href;
                         if ( url.includes( "#" ) ) url = url.substring( 0, url.indexOf( "#" ) );
-                        url = url + `?fundraiser=${sprj}`;
+                        var q_char = url.includes( "?" ) "&":"?";
+                        url = url + `${q_char}fundraiser=${sprj}`;
                         var backup_file_contents = {
                             privkey: btc_sec,
                             fundraiser_id: sprj,
