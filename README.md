@@ -26,3 +26,6 @@ Well, they're only semi-automatic. When a contributor makes their pledge I also 
 
 # Why did you make this?
 Alternative fundraising platforms like geyser.fund don't let contributors take your money back. Contributors send their money directly to the recipient and that's that. I wanted modern "refund" features like platforms like gofundme have, so that's what I made. And all my software is free and open source so companies like geyser are free to use it if they like it.
+
+# What if people contribute to my fundraiser but not enough for me to reach my goal?
+If you have enough to make up the difference just contribute your own funds to the fundraiser so that you *do* have enough. That's perfectly acceptable in my opinion and I hope it is clear to contributors that the recipient can contribute too.
