@@ -11,7 +11,7 @@ Just click here: https://supertestnet.github.io/semaphore/
 Just click here: https://supertestnet.github.io/semaphore/index.html?fundraiser=sprj13n5y0vnu9ajuaund2nxzphy357m82gk7vumup4mys67ketxlsch8wumn8ghj7mn0wd68yat99e3k7mggacq09
 
 # Video explainer
-[![](https://supertestnet.github.io/semaphore-yt-thumbnail-with-yt-logo.jpg)](https://www.youtube.com/watch?v=VHGRQVuVtCY)
+[![](https://i.ibb.co/v1Srq3g/semaphore-yt-thumbnail-with-yt-logo.jpg)](https://www.youtube.com/watch?v=VHGRQVuVtCY)
 
 # How does it work?
 Semaphore gives contributors two ways to give someone money: irreversible and reversible. If you choose irreversible, it sends the money straight to the recipient's bitcoin address and there are no "takebacks" after the money confirms. If you choose reversible, it sends the money to a bitcoin smart contract with two spending paths: one lets the contributor take their money back at any time, the other is a "multisig" path that can only spend the money if the contributor and the recipient both cosign a transaction.
