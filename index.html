@@ -1750,7 +1750,6 @@
                 if ( !( "fundraiser_id" in json ) ) return;
                 if ( json[ "fundraiser_id" ] != $_GET[ "fundraiser" ] ) return;
                 if ( !( "is_lightning" in json ) || !json[ "is_lightning" ] ) {
-                    if ( !( "project_lna" in project ) ) return;
                     var utxo_was_spent_in_this_txid_and_vin = false;
                     if ( "contributor_key" in json ) {
                         var script = [ 0, json[ "contributor_key" ], 'OP_CHECKSIGADD', fundraiser, 'OP_CHECKSIGADD', 2, 'OP_EQUAL' ];
@@ -1866,6 +1865,7 @@
                     if ( "contributor_key" in json && !utxo_was_spent_in_this_txid_and_vin ) contributed_utxos.push( { txid: json[ "txid" ], vout: json[ "vout" ], value: amt_pledged_by_this_utxo, address, main_sigs: json[ "main_sigs" ], extra_sigs_id: json[ "extra_sigs_id" ], tapleaf, script, cblock, contributor_key: json[ "contributor_key" ], levels_with_valid_sig: {} } );
                     if ( json[ "contributor_key" ] == btc_pub ) checkForUtxos();
                 } else {
+                    if ( !( "project_lna" in project ) || !project.project_lna ) return;
                     if ( !( "invoice" in json ) ) return;
                     if ( !( "preimage" in json ) ) return;
                     var is_valid_invoice = isValidInvoice( json[ "invoice" ] );
