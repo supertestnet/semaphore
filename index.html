@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 <html>
     <head>
+        <title>Semaphore | Crowdfunding with bitcoin</title>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, user-scalable=no">
         <script src="https://supertestnet.github.io/nostr-image-host/nostr_image_host.js"></script>
+        <script src="https://supertestnet.github.io/bitcoin-chess/js/bolt11.js"></script>
         <script src="https://supertestnet.github.io/bitcoin-chess/js/qrcode.js"></script>
         <script src="https://cdn.jsdelivr.net/gh/6502/sha256@main/sha256.js"></script>
         <script src="https://unpkg.com/@cmdcode/tapscript@1.4.0"></script>
@@ -401,10 +403,12 @@
             var lastblock;
             var levels = [];
             var funds_spent_cooperatively = false;
+            var lightning_works;
             var hexToBase64 = hex => btoa( hex.match( /\w{2}/g ).map( a => String.fromCharCode( parseInt( a, 16 ) ) ).join( "" ) );
             var finishUpload = async ( socket, main_sigs, extra_sigs_id, contributor_key, fundraiser_key, txid, vout, comment, recovery, recovery_fee, privKey, pubKey ) => {
                 var note = JSON.stringify({
                     fundraiser_id: $_GET[ "fundraiser" ],
+                    is_lightning: false,
                     main_sigs,
                     extra_sigs_id,
                     contributor_key,
@@ -1603,6 +1607,8 @@
             sessionStorage.removeItem( "modal_cleared" );
             sessionStorage.removeItem( "reversible" );
             sessionStorage.removeItem( "recovery" );
+            sessionStorage.removeItem( "ln_amount" );
+            sessionStorage.removeItem( "ln_public" );
             async function getNote( item ) {
                 async function isNoteSetYet( note_i_seek ) {
                     return new Promise( function( resolve, reject ) {
@@ -1743,120 +1749,175 @@
                 var fundraiser = project.project_key;
                 if ( !( "fundraiser_id" in json ) ) return;
                 if ( json[ "fundraiser_id" ] != $_GET[ "fundraiser" ] ) return;
-                var utxo_was_spent_in_this_txid_and_vin = false;
-                if ( "contributor_key" in json ) {
-                    var script = [ 0, json[ "contributor_key" ], 'OP_CHECKSIGADD', fundraiser, 'OP_CHECKSIGADD', 2, 'OP_EQUAL' ];
-                    var tapleaf = tapscript.Tap.encodeScript( script );
-                    var [ tpubkey, cblock ] = tapscript.Tap.getPubKey( json[ "contributor_key" ], { target: tapleaf });
-                    var address = tapscript.Address.p2tr.fromPubKey( tpubkey, mainnet_or_testnet );
-                    //stop here and do not update the page if the contributor did not contribute anything
-                    // var utxos = await getData( `https://${btc_net}/api/address/${address}/utxo` );
-                    // utxos = JSON.parse( utxos );
-                    // var amt_pledged_by_this_utxo = 0;
-                    // utxos.forEach( item => {
-                    //     if ( item[ "txid" ] == json[ "txid" ] && item[ "vout" ] == json[ "vout" ] ) amt_pledged_by_this_utxo = item[ "value" ];
-                    // });
-                    // if ( !amt_pledged_by_this_utxo ) return;
-                    //stop here and do not update the page if the contributor did not contribute anything
-                    var txinfo = await getData( `https://${btc_net}/api/address/${address}/txs` );
-                    txinfo = JSON.parse( txinfo );
-                    var amt_pledged_by_this_utxo = 0;
-                    txinfo.every( item => {
-                        if (
-                            item[ "txid" ] == json[ "txid" ] &&
-                            item[ "vout" ][ json[ "vout" ] ] && 
-                            item[ "vout" ][ json[ "vout" ] ][ "scriptpubkey_address" ] == address
-                        ) {
-                            amt_pledged_by_this_utxo = item[ "vout" ][ json[ "vout" ] ][ "value" ];
-                            return;
-                        }
-                        return true;
-                    });
-                    if ( !amt_pledged_by_this_utxo ) return;
-                    //stop here and do not update the page if utxo was revoked
-                    var utxo_was_revoked = false;
-                    txinfo.every( item => {
-                        var item_found;
-                        item.vin.every( ( input, index ) => {
+                if ( !( "is_lightning" in json ) || !json[ "is_lightning" ] ) {
+                    if ( !( "project_lna" in project ) ) return;
+                    var utxo_was_spent_in_this_txid_and_vin = false;
+                    if ( "contributor_key" in json ) {
+                        var script = [ 0, json[ "contributor_key" ], 'OP_CHECKSIGADD', fundraiser, 'OP_CHECKSIGADD', 2, 'OP_EQUAL' ];
+                        var tapleaf = tapscript.Tap.encodeScript( script );
+                        var [ tpubkey, cblock ] = tapscript.Tap.getPubKey( json[ "contributor_key" ], { target: tapleaf });
+                        var address = tapscript.Address.p2tr.fromPubKey( tpubkey, mainnet_or_testnet );
+                        //stop here and do not update the page if the contributor did not contribute anything
+                        // var utxos = await getData( `https://${btc_net}/api/address/${address}/utxo` );
+                        // utxos = JSON.parse( utxos );
+                        // var amt_pledged_by_this_utxo = 0;
+                        // utxos.forEach( item => {
+                        //     if ( item[ "txid" ] == json[ "txid" ] && item[ "vout" ] == json[ "vout" ] ) amt_pledged_by_this_utxo = item[ "value" ];
+                        // });
+                        // if ( !amt_pledged_by_this_utxo ) return;
+                        //stop here and do not update the page if the contributor did not contribute anything
+                        var txinfo = await getData( `https://${btc_net}/api/address/${address}/txs` );
+                        txinfo = JSON.parse( txinfo );
+                        var amt_pledged_by_this_utxo = 0;
+                        txinfo.every( item => {
                             if (
-                                input[ "txid" ] == json[ "txid" ] &&
-                                input[ "vout" ] == json[ "vout" ]
+                                item[ "txid" ] == json[ "txid" ] &&
+                                item[ "vout" ][ json[ "vout" ] ] && 
+                                item[ "vout" ][ json[ "vout" ] ][ "scriptpubkey_address" ] == address
                             ) {
-                                utxo_was_spent_in_this_txid_and_vin = `${item[ "txid" ]}:${index}`;
-                                item_found = true;
-                                if ( input[ "witness" ].length == 1 ) utxo_was_revoked = true;
-                                else funds_spent_cooperatively = true;
+                                amt_pledged_by_this_utxo = item[ "vout" ][ json[ "vout" ] ][ "value" ];
                                 return;
                             }
                             return true;
                         });
-                        //the "every" function needs you to return "true" if you haven't found the thing you are looking for
-                        //and "false" if you have. By inverting item_found, I make it return true by default, but if the
-                        //utxo is found to have been spent, it will flip to false, thus exiting the loop
-                        return !item_found;
-                    });
-                    if ( utxo_was_revoked ) return;
-                    //stop here and do not update the page if the sig is invalid
-                    var contribution_txdata = tapscript.Tx.create({
-                        vin: [{
-                            txid: json[ "txid" ],
-                            vout: json[ "vout" ],
-                            prevout: {
-                                value: amt_pledged_by_this_utxo,
-                                scriptPubKey: tapscript.Address.toScriptPubKey( address ),
-                            },
-                        }],
-                        vout: [{
-                            value: project.project_gol,
-                            scriptPubKey: tapscript.Address.toScriptPubKey( project.project_add ),
-                        }],
-                    });
-                    contribution_txdata.vin[ 0 ].witness = [ json[ "main_sigs" ][ 1 ] ];
-                    var sighash = await tapscript.Signer.taproot.hash( contribution_txdata, 0, { extension: tapleaf, sigflag: 128 | 1 } ).hex;
-                    var isValid = await nobleSecp256k1.schnorr.verify( json[ "main_sigs" ][ 1 ].substring( 0, 128 ), sighash, json[ "contributor_key" ] );
-                    if ( !isValid ) return;
+                        if ( !amt_pledged_by_this_utxo ) return;
+                        //stop here and do not update the page if utxo was revoked
+                        var utxo_was_revoked = false;
+                        txinfo.every( item => {
+                            var item_found;
+                            item.vin.every( ( input, index ) => {
+                                if (
+                                    input[ "txid" ] == json[ "txid" ] &&
+                                    input[ "vout" ] == json[ "vout" ]
+                                ) {
+                                    utxo_was_spent_in_this_txid_and_vin = `${item[ "txid" ]}:${index}`;
+                                    item_found = true;
+                                    if ( input[ "witness" ].length == 1 ) utxo_was_revoked = true;
+                                    else funds_spent_cooperatively = true;
+                                    return;
+                                }
+                                return true;
+                            });
+                            //the "every" function needs you to return "true" if you haven't found the thing you are looking for
+                            //and "false" if you have. By inverting item_found, I make it return true by default, but if the
+                            //utxo is found to have been spent, it will flip to false, thus exiting the loop
+                            return !item_found;
+                        });
+                        if ( utxo_was_revoked ) return;
+                        //stop here and do not update the page if the sig is invalid
+                        var contribution_txdata = tapscript.Tx.create({
+                            vin: [{
+                                txid: json[ "txid" ],
+                                vout: json[ "vout" ],
+                                prevout: {
+                                    value: amt_pledged_by_this_utxo,
+                                    scriptPubKey: tapscript.Address.toScriptPubKey( address ),
+                                },
+                            }],
+                            vout: [{
+                                value: project.project_gol,
+                                scriptPubKey: tapscript.Address.toScriptPubKey( project.project_add ),
+                            }],
+                        });
+                        contribution_txdata.vin[ 0 ].witness = [ json[ "main_sigs" ][ 1 ] ];
+                        var sighash = await tapscript.Signer.taproot.hash( contribution_txdata, 0, { extension: tapleaf, sigflag: 128 | 1 } ).hex;
+                        var isValid = await nobleSecp256k1.schnorr.verify( json[ "main_sigs" ][ 1 ].substring( 0, 128 ), sighash, json[ "contributor_key" ] );
+                        if ( !isValid ) return;
+                    } else {
+                        var address = project.project_add;
+                        var txinfo = await getData( `https://${btc_net}/api/tx/${json[ "txid" ]}` );
+                        txinfo = JSON.parse( txinfo );
+                        var amt_pledged_by_this_utxo = 0;
+                        txinfo[ "vout" ].forEach( ( item, index ) => {
+                            if ( index == json[ "vout" ] && item[ "scriptpubkey_address" ] == address ) amt_pledged_by_this_utxo = item[ "value" ];
+                        });
+                        if ( !amt_pledged_by_this_utxo ) return;
+                    }
+                    if ( used_txid_and_vouts.includes( `${json[ "txid" ]}:${json[ "vout" ]}` ) ) return;
+                    used_txid_and_vouts.push( `${json[ "txid" ]}:${json[ "vout" ]}` );
+                    //autorefund
+                    if ( !!json[ "recovery" ] && !!json[ "recovery_fee" ] && lastblock >= project.project_end + 144 ) {
+                        var recovery_txdata = tapscript.Tx.create({
+                            vin: [{
+                                txid: json[ "txid" ],
+                                vout: json[ "vout" ],
+                                sequence: 0xfffffffd,
+                                prevout: {
+                                    value: amt_pledged_by_this_utxo,
+                                    scriptPubKey: tapscript.Address.toScriptPubKey( address ),
+                                },
+                                witness: [ json[ "main_sigs" ][ 0 ] ],
+                            }],
+                            vout: [{
+                                value: amt_pledged_by_this_utxo - json[ "recovery_fee" ],
+                                scriptPubKey: tapscript.Address.toScriptPubKey( json[ "recovery" ] ),
+                            }],
+                            locktime: project.project_end + 144,
+                        });
+                        var txhex = tapscript.Tx.encode( recovery_txdata ).hex;
+                        setTimeout( async () => {
+                            await pushBTCpmt( txhex, "" );
+                            // var txid = await pushBTCpmt( txhex, "" );
+                            // console.log( "autorefund attempted!", txid, txhex );
+                        }, Math.floor( Math.random() * 1000 ) );
+                    } else {
+                        // if ( !!json[ "recovery" ] && !!json[ "recovery_fee" ] ) console.log( `no autorefund right now because it is only block ${lastblock} and it needs to be block ${project.project_end + 144} -- which is in ${project.project_end + 144 - lastblock} blocks` );
+                    }
+                    if ( "contributor_key" in json && !utxo_was_spent_in_this_txid_and_vin ) contributed_utxos.push( { txid: json[ "txid" ], vout: json[ "vout" ], value: amt_pledged_by_this_utxo, address, main_sigs: json[ "main_sigs" ], extra_sigs_id: json[ "extra_sigs_id" ], tapleaf, script, cblock, contributor_key: json[ "contributor_key" ], levels_with_valid_sig: {} } );
+                    if ( json[ "contributor_key" ] == btc_pub ) checkForUtxos();
                 } else {
-                    var address = project.project_add;
-                    var txinfo = await getData( `https://${btc_net}/api/tx/${json[ "txid" ]}` );
-                    txinfo = JSON.parse( txinfo );
-                    var amt_pledged_by_this_utxo = 0;
-                    txinfo[ "vout" ].forEach( ( item, index ) => {
-                        if ( index == json[ "vout" ] && item[ "scriptpubkey_address" ] == address ) amt_pledged_by_this_utxo = item[ "value" ];
-                    });
-                    if ( !amt_pledged_by_this_utxo ) return;
+                    if ( !( "invoice" in json ) ) return;
+                    if ( !( "preimage" in json ) ) return;
+                    var is_valid_invoice = isValidInvoice( json[ "invoice" ] );
+                    if ( !is_valid_invoice ) return;
+                    var invoice = json[ "invoice" ];
+                    console.log( invoice );
+                    var ln_preimage = json[ "preimage" ];
+                    if ( !isValidHex( ln_preimage ) ) return;
+                    //get payment hash from invoice and check if preimage matches it
+                    var expected_pmthash = getInvoicePmthash( invoice );
+                    var real_pmthash = SHA256( nostr_image_host.hexToBytes( ln_preimage ) );
+                    var they_match = expected_pmthash == real_pmthash;
+                    if ( !they_match ) return;
+                    //then get expected description hash and check if actual one matches it
+                    var lnaddress = project.project_lna;
+                    var split_lna = lnaddress.split( "@" );
+                    var domain = split_lna[ 1 ];
+                    var username = split_lna[ 0 ];
+                    var url = `https://${domain}/.well-known/lnurlp/${username}`;
+                    var ln_info = await getData( url );
+                    ln_info = JSON.parse( ln_info );
+                    var minSendable = ln_info[ "minSendable" ];
+                    var callback = ln_info[ "callback" ];
+                    var second_url = `${callback}?amount=${minSendable}`;
+                    var invoice_info = await getData( second_url );
+                    invoice_info = JSON.parse( invoice_info );
+                    var test_invoice = invoice_info[ "pr" ];
+                    var expected_deschash = getInvoiceDeschash( test_invoice );
+                    var real_deschash = getInvoiceDeschash( invoice );
+                    if ( expected_deschash != real_deschash ) return;
+                    //then get public key from invoice and check if it matches the public
+                    //key you get from an invoice for the *real* recipient's lightning
+                    //address
+                    var expected_pubkey = getInvoicePubkey( test_invoice );
+                    var real_pubkey = getInvoicePubkey( invoice );
+                    if ( expected_pubkey != real_pubkey ) return;
+                    //then check the invoice's signature and ensure it validates for the pubkey
+                    //ok I don't think I actually have to do this part because looking through
+                    //the bolt11 library I found that it throws an error when validating an
+                    //invoice if the signature is not valid: "Signature, message, and
+                    //recoveryID did not produce the same pubkey as payeeNodeKey"
+                    //-- that implies that it tries to "recover" the pubkey using the signature
+                    //and the message, and if the recovered pubkey doesn't match the one that
+                    //supposedly created this invoice, it throws an error. Also, the error
+                    //right after that, "Reconstruction with signature and recoveryID requires
+                    //payeeNodeKey to verify correctness of input data," implies that if there
+                    //IS no "payeeNodeKey" to validate against it will ALSO through an error
+                    //so since I already checked if the invoice is valid I already know the
+                    //signature validates for the given pubkey, and so if that matches the
+                    //one I expect then I know the invoice is good -- yay!
+                    var amt_pledged_by_this_utxo = getInvoiceAmount( json[ "invoice" ] );
                 }
-                if ( used_txid_and_vouts.includes( `${json[ "txid" ]}:${json[ "vout" ]}` ) ) return;
-                used_txid_and_vouts.push( `${json[ "txid" ]}:${json[ "vout" ]}` );
-                //autorefund
-                if ( !!json[ "recovery" ] && !!json[ "recovery_fee" ] && lastblock >= project.project_end + 144 ) {
-                    var recovery_txdata = tapscript.Tx.create({
-                        vin: [{
-                            txid: json[ "txid" ],
-                            vout: json[ "vout" ],
-                            sequence: 0xfffffffd,
-                            prevout: {
-                                value: amt_pledged_by_this_utxo,
-                                scriptPubKey: tapscript.Address.toScriptPubKey( address ),
-                            },
-                            witness: [ json[ "main_sigs" ][ 0 ] ],
-                        }],
-                        vout: [{
-                            value: amt_pledged_by_this_utxo - json[ "recovery_fee" ],
-                            scriptPubKey: tapscript.Address.toScriptPubKey( json[ "recovery" ] ),
-                        }],
-                        locktime: project.project_end + 144,
-                    });
-                    var txhex = tapscript.Tx.encode( recovery_txdata ).hex;
-                    setTimeout( async () => {
-                        await pushBTCpmt( txhex, "" );
-                        // var txid = await pushBTCpmt( txhex, "" );
-                        // console.log( "autorefund attempted!", txid, txhex );
-                    }, Math.floor( Math.random() * 1000 ) );
-                } else {
-                    // if ( !!json[ "recovery" ] && !!json[ "recovery_fee" ] ) console.log( `no autorefund right now because it is only block ${lastblock} and it needs to be block ${project.project_end + 144} -- which is in ${project.project_end + 144 - lastblock} blocks` );
-                }
-                if ( "contributor_key" in json && !utxo_was_spent_in_this_txid_and_vin ) contributed_utxos.push( { txid: json[ "txid" ], vout: json[ "vout" ], value: amt_pledged_by_this_utxo, address, main_sigs: json[ "main_sigs" ], extra_sigs_id: json[ "extra_sigs_id" ], tapleaf, script, cblock, contributor_key: json[ "contributor_key" ], levels_with_valid_sig: {} } );
-                if ( json[ "contributor_key" ] == btc_pub ) checkForUtxos();
                 var num_of_pledgers = Number( $( '.num_of_pledgers' ).innerText ) + 1;
                 $( '.num_of_pledgers' ).innerText = num_of_pledgers;
                 var total_before_now = $( '.raised' ).innerText.replaceAll( ",", "" );
@@ -2011,6 +2072,36 @@
                 return array;
             }
             var showIrreversible = async () => {
+                if ( project.project_lna ) {
+                    var skip_ln_invoice = false;
+                    var lnaddress = project.project_lna;
+                    var split_lna = lnaddress.split( "@" );
+                    var domain = split_lna[ 1 ];
+                    var username = split_lna[ 0 ];
+                    var url = `https://${domain}/.well-known/lnurlp/${username}`;
+                    try {
+                        var ln_info = await getData( url );
+                        ln_info = JSON.parse( ln_info );
+                    } catch( e ) {
+                        skip_ln_invoice = true;
+                    }
+                    if ( !skip_ln_invoice ) {
+                        var minSendable = ln_info[ "minSendable" ];
+                        var maxSendable = ln_info[ "maxSendable" ];
+                        var callback = ln_info[ "callback" ];
+                        var second_url = `${callback}?amount=${minSendable}`;
+                        try {
+                            var invoice_info = await getData( second_url );
+                            invoice_info = JSON.parse( invoice_info );
+                            var invoice = invoice_info[ "pr" ];
+                            if ( !invoice ) throw "didn't work";
+                            else lightning_works = true;
+                        } catch( e ) {
+                            var invoice = "didn't work";
+                        }
+                        if ( invoice == "didn't work" ) skip_ln_invoice = true;
+                    }
+                }
                 var address = fundraiser_addy;
                 var url = "bitcoin:" + address;
                 var a = document.createElement( "a" );
@@ -2018,7 +2109,11 @@
                 a.target = "_blank";
                 a.append( createQR( url.toUpperCase() ) );
                 var prep_div = document.createElement( "div" );
-                prep_div.innerHTML = `<p>Please send your contribution here</p>`;
+                var html = ``;
+                if ( lightning_works ) html += `<p><span style="color: blue; text-decoration: underline; cursor: pointer" onclick="doLightning( ${minSendable}, ${maxSendable} )">Click here</span> to contribute via lightning</p>`;
+                if ( lightning_works ) html += `<p>Otherwise send your contribution here</p>`;
+                else html += `<p>Please send your contribution here</p>`;
+                prep_div.innerHTML = html;
                 prep_div.append( a );
                 var div_html = prep_div.innerHTML + `<p>${address}</p>`;
                 showModal( div_html );
@@ -2065,6 +2160,7 @@
                 var pubKey = nobleSecp256k1.getPublicKey( privKey, true ).substring( 2 );
                 var note = JSON.stringify({
                     fundraiser_id: $_GET[ "fundraiser" ],
+                    is_lightning: false,
                     txid,
                     vout,
                     public_comment: comment,
@@ -2444,6 +2540,215 @@
                 if ( txid.includes( 'error' ) ) return showModal( '<p>Oh no! There was an error with your transaction, please try again. Here is the error message:</p><p>' + txid + '</p><p>Ask a developer for help.</p>' );
                 showModal( `Success! Here is your txid: <a href="https://${btc_net}/tx/${txid}" target="_blank">https://${btc_net}/tx/${txid}</a>` );
             }
+            var doLightning = async ( minSendable, maxSendable ) => {
+                sessionStorage.removeItem( "ln_amount" );
+                sessionStorage.removeItem( "modal_cleared" );
+                showModal( `
+                    <p style="font-weight: bold;">Enter the amount of sats you want to send via lightning</p>
+                    <p><input type="number" style="max-width: 90%" class="ln_amount"></p>
+                    <p><button class="submit_ln_amount" onclick="sessionStorage[ 'ln_amount' ] = $( '.ln_amount' ).value;sessionStorage[ 'modal_cleared' ] = true;">Submit</button></p>
+                `, true );
+                await getNote( "modal_cleared" );
+                sessionStorage.removeItem( "modal_cleared" );
+                var ln_amount = await getNote( "ln_amount" );
+                ln_amount = Number( ln_amount );
+                sessionStorage.removeItem( "ln_amount" );
+                if ( ln_amount > maxSendable ) return showModal( `The amount you entered is more than ${maxSendable.toLocaleString()} sats, the maximum amount allowed by the fundraiser's lightning address server. Please try again and contribute a smaller amount.` );
+                if ( ln_amount < minSendable ) return showModal( `The amount you entered is lower than ${minSendable.toLocaleString()} sats, the minimum amount allowed by the fundraiser's lightning address server. Please try again and contribute a larger amount.` );
+                sessionStorage.removeItem( "ln_public" );
+                showModal( `
+                    <p style="font-weight: bold;">Public or private?</p>
+                    <p>This software cannot "look up" your lightning payment like it can with a "regular" bitcoin payment because lightning payments are private by design and therefore are not recorded on a public blockchain. But a crowdfund, as the name implies, is meant to be public. So you have to do a bit of work if you want your lightning pledge publicly registered as a contribution the crowdfund.</p>
+                    <p>Lightning payments are "proven" with something called a "preimage" or a "proof of payment" which functions as a sort of receipt. To "publish" your contribution you must provide this preimage after you make your payment, but not all lightning wallets show it to you.</p>
+                    <p>If you want your contribution to be public, first ensure your wallet shows this preimage to you when you make a payment. (Try making a small payment to some other service, then view the transaction details, then look for something called a "preimage" or a "proof of payment.") You will be asked to paste it on the next page after you make the payment.</p>
+                    <p>Or you can decide *not* to publish this payment. If you choose that option, the recipient will still get the money but it won't count toward the fundraising goal. What do you want to do?</p>
+                    <p><button class="ln_public" onclick="sessionStorage[ 'ln_public' ] = true;sessionStorage[ 'modal_cleared' ] = true;">Public</button> <button class="ln_private" onclick="sessionStorage[ 'modal_cleared' ] = true;">Private</button></p>
+                `, true );
+                await getNote( "modal_cleared" );
+                sessionStorage.removeItem( "modal_cleared" );
+                var payment_is_public;
+                if ( sessionStorage[ "ln_public" ] ) payment_is_public = true;
+                sessionStorage.removeItem( "ln_public" );
+                var lnaddress = project.project_lna;
+                var split_lna = lnaddress.split( "@" );
+                var domain = split_lna[ 1 ];
+                var username = split_lna[ 0 ];
+                var url = `https://${domain}/.well-known/lnurlp/${username}`;
+                var ln_info = await getData( url );
+                ln_info = JSON.parse( ln_info );
+                var callback = ln_info[ "callback" ];
+                var second_url = `${callback}?amount=${ln_amount}`;
+                var invoice_info = await getData( second_url );
+                invoice_info = JSON.parse( invoice_info );
+                var invoice = invoice_info[ "pr" ];
+                var url = "lightning:" + invoice;
+                var a = document.createElement( "a" );
+                a.href = url;
+                a.target = "_blank";
+                a.append( createQR( url.toUpperCase() ) );
+                var prep_div = document.createElement( "div" );
+                var html = `<p>Please send your contribution here</p>`;
+                prep_div.innerHTML = html;
+                prep_div.append( a );
+                var more_html = ``;
+                if ( payment_is_public ) {
+                    more_html += `
+                        <p>Please paste the preimage here</p>
+                        <p><input style="max-width: 90%" class="ln_preimage"></p>
+                        <p><button class="submit_ln_preimage" onclick="sessionStorage[ 'ln_preimage' ] = $( '.ln_preimage' ).value;sessionStorage[ 'modal_cleared' ] = true;">Submit</button></p>`
+                }
+                more_html += `<p>Your lightning invoice:</p><p>${invoice}</p>`;
+                var div_html = prep_div.innerHTML + more_html;
+                showModal( div_html );
+                if ( !payment_is_public ) return;
+                await getNote( "modal_cleared" );
+                sessionStorage.removeItem( "modal_cleared" );
+                $( '.x_modal' ).click();
+                var ln_preimage = sessionStorage[ "ln_preimage" ];
+                sessionStorage.removeItem( "ln_preimage" );
+                console.log( "ln_preimage", ln_preimage );
+                var expected_pmthash = getInvoicePmthash( invoice );
+                console.log( "ln_pmthash", expected_pmthash );
+                var real_pmthash = SHA256( nostr_image_host.hexToBytes( ln_preimage ) );
+                var they_match = expected_pmthash == real_pmthash;
+                if ( !they_match ) return showModal( `It looks like you pasted your preimage wrong -- for some reason, it did not match the invoice. The recipient still got your money but I'm sorry to say your contribution won't count toward the fundraising goal.` );
+                sessionStorage.removeItem( "modal_cleared" );
+                sessionStorage.removeItem( "comment" );
+                showModal( `
+                    <p style="font-weight: bold;">Pledge detected! Enter a public comment to send with it (optional)</p>
+                    <p><input style="max-width: 90%" class="modal_comment"></p>
+                    <p>Chars left: <span class="modal_comment_chars_left">140</span></p>
+                    <p><button class="submit_modal_comment">Submit</button></p>
+                `, true );
+                $( '.submit_modal_comment' ).onclick = () => {
+                    sessionStorage[ 'comment' ] = $( '.modal_comment' ).value;
+                    sessionStorage[ 'modal_cleared' ] = true;
+                    showModal( `<p>loading, please wait...</p>` );
+                }
+                $( '.modal_comment' ).onchange = () => {
+                    var text = $( '.modal_comment' ).value;
+                    var limit = 140;
+                    var length = text.length;
+                    if ( limit - length < 0 ) return $( '.modal_comment' ).value = text.substring( 0, limit );
+                    $( '.modal_comment_chars_left' ).innerText = `${limit - length}`;
+                }
+                $( '.modal_comment' ).onkeyup = () => {
+                    var text = $( '.modal_comment' ).value;
+                    var limit = 140;
+                    var length = text.length;
+                    if ( limit - length < 0 ) return $( '.modal_comment' ).value = text.substring( 0, limit );
+                    $( '.modal_comment_chars_left' ).innerText = `${limit - length}`;
+                }
+                await getNote( "modal_cleared" );
+                var comment = await getNote( "comment" );
+                sessionStorage.removeItem( "comment" );
+                console.log( "comment:", comment );
+                var note = JSON.stringify({
+                    fundraiser_id: $_GET[ "fundraiser" ],
+                    is_lightning: true,
+                    invoice,
+                    preimage: ln_preimage,
+                    public_comment: comment,
+                });
+                var fundraiser_key = project.project_key;
+                var privKey = nostr_image_host.bytesToHex( nobleSecp256k1.utils.randomPrivateKey() );
+                var pubKey = nobleSecp256k1.getPublicKey( privKey, true ).substring( 2 );
+                var event = {
+                    "content"    : note,
+                    "created_at" : Math.floor( Date.now() / 1000 ),
+                    "kind"       : 62116,
+                    "tags"       : [ [ "p", fundraiser_key ] ],
+                    "pubkey"     : pubKey,
+                }
+                var signedEvent = await nostr_image_host.getSignedEvent( event, privKey );
+                socket.send( JSON.stringify([ "EVENT", signedEvent ]) );
+                await nostr_image_host.waitSomeSeconds( 2 );
+                socket.close();
+                var html = `<p>Success! Your contribution has been recorded</p>`;
+                showModal( html );
+
+            }
+            var SHA256 = string_or_uint8array => nostr_image_host.bytesToHex( sha256( string_or_uint8array ) );
+            var isValidInvoice = invoice => {
+                try{
+                    return typeof bolt11.decode( invoice ) == "object";
+                } catch( e ) {
+                    return;
+                }
+            }
+            function getInvoiceAmount( invoice ) {
+                var decoded = bolt11.decode( invoice );
+                var amount = decoded[ "satoshis" ].toString();
+                return Number( amount );
+            }
+            function getInvoicePubkey( invoice ) {
+                var decoded = bolt11.decode( invoice );
+                return decoded.payeeNodeKey;
+            }
+            var getInvoicePmthash = invoice => {
+                var decoded = bolt11.decode( invoice );
+                var i; for ( i=0; i<decoded[ "tags" ].length; i++ ) {
+                    if ( decoded[ "tags" ][ i ][ "tagName" ] == "payment_hash" ) var pmthash = decoded[ "tags" ][ i ][ "data" ].toString();
+                }
+                return pmthash;
+            }
+            var getInvoiceDeschash = invoice => {
+                var deschash = "no desc hash";
+                var decoded = bolt11.decode( invoice );
+                var i; for ( i=0; i<decoded[ "tags" ].length; i++ ) {
+                    if ( decoded[ "tags" ][ i ][ "tagName" ] == "purpose_commit_hash" ) var deschash = decoded[ "tags" ][ i ][ "data" ].toString();
+                }
+                return deschash;
+            }
+            function isValidHex( h ) {
+                if ( !h ) return;
+                var length = h.length;
+                if ( length % 2 ) return;
+                try {
+                    var a = BigInt( "0x" + h, "hex" );
+                } catch( e ) {
+                    return;
+                }
+                var unpadded = a.toString( 16 );
+                var padding = [];
+                var i; for ( i=0; i<length; i++ ) padding.push( 0 );
+                padding = padding.join( "" );
+                padding = padding + unpadded.toString();
+                padding = padding.slice( -Math.abs( length ) );
+                return ( padding === h );
+            }
+            var convertSecToDer = sec_sig => {
+                var sig_parts = sec_sig.match( /.{64}/g );
+                var part_one_array = sig_parts[ 0 ].match( /.{2}/g );
+                var index_of_non_zeros_in_first_part = 0;
+                part_one_array.every( ( item, index ) => {
+                    if ( item != "00" ) {
+                        index_of_non_zeros_in_first_part = index;
+                        return;
+                    }
+                    return true;
+                });
+                part_one_array.splice( 0, index_of_non_zeros_in_first_part );
+                sig_parts[ 0 ] = part_one_array.join( "" );
+                var part_two_array = sig_parts[ 1 ].match( /.{2}/g );
+                var index_of_non_zeros_in_second_part = 0;
+                part_two_array.every( ( item, index ) => {
+                    if ( item != "00" ) {
+                        index_of_non_zeros_in_second_part = index;
+                        return;
+                    }
+                    return true;
+                });
+                part_two_array.splice( 0, index_of_non_zeros_in_second_part );
+                sig_parts[ 1 ] = part_two_array.join( "" );
+                var part_one_length = ( sig_parts[ 0 ].length / 2 ).toString( 16 );
+                var part_two_length = ( sig_parts[ 1 ].length / 2 ).toString( 16 );
+                var part_one_prefix = "02" + part_one_length;
+                var part_two_prefix = "02" + part_two_length;
+                var overall_length = ( ( sig_parts[ 0 ].length / 2 ) + 2 + ( sig_parts[ 1 ].length / 2 ) + 2 ).toString( 16 );
+                var der_sig = `30${overall_length}${part_one_prefix}${sig_parts[ 0 ]}${part_two_prefix}${sig_parts[ 1 ]}`;
+                return der_sig;
+            }
         </script>
     </head>
     <body>
@@ -2503,6 +2808,8 @@
                             <p>Aka $<span class="project_gol_in_usd">0</span></p>
                             <p style="font-weight: bold;">Enter a bitcoin address where you want contributions to go</p>
                             <p><input class="project_add"></p>
+                            <p style="font-weight: bold;">Enter a lightning address for second layer contributions (optional)</p>
+                            <p><input class="project_lna"></p>
                             <p style="font-weight: bold;">Enter when you want your fundraiser to end</p>
                             <p><input type="date" name="project_end" id="project_end" class="project_end"></p>
                             <p><button class="submit_new_project">Submit</button></p>
@@ -2552,8 +2859,34 @@
             $( '.project_dsc' ).value = "";
             $( '.project_gol' ).value = "";
             $( '.project_add' ).value = "";
+            $( '.project_lna' ).value = "";
             $( '.project_end' ).value = "";
             $( '.submit_new_project' ).onclick = async () => {
+                if ( $( '.project_lna' ).value ) {
+                    var lnaddress = $( '.project_lna' ).value;
+                    var split_lna = lnaddress.split( "@" );
+                    var domain = split_lna[ 1 ];
+                    var username = split_lna[ 0 ];
+                    var url = `https://${domain}/.well-known/lnurlp/${username}`;
+                    try {
+                        var ln_info = await getData( url );
+                        ln_info = JSON.parse( ln_info );
+                    } catch( e ) {
+                        return showModal( `<p>The lightning address you provided does not exist or the service provider's server (${domain}) does not support standard http requests, probably due to a CORS error on their server, or due to being hosted as a tor hidden service. Please pick a different lightning address and try again.</p><p>If you think the server (${domain}) may be at fault, consider filing a complaint with them so they fix their server or offer a non-tor option. Or, if you think you received this error message erroneously, open an issue on Semaphore's github page.</p>` );
+                    }
+                    var minSendable = ln_info[ "minSendable" ];
+                    var callback = ln_info[ "callback" ];
+                    var second_url = `${callback}?amount=${minSendable}`;
+                    try {
+                        var invoice_info = await getData( second_url );
+                        invoice_info = JSON.parse( invoice_info );
+                        var invoice = invoice_info[ "pr" ];
+                        if ( !invoice ) throw "didn't work";
+                    } catch( e ) {
+                        var invoice = "didn't work";
+                    }
+                    if ( invoice == "didn't work" ) return showModal( `The server of the lightning address you provided (${domain}) doesn't support standard HTTPS Get requests, probably due to a CORS error or due to being an onion address. Please pick a different lightning address provider and try again, and maybe file a complaint with them so they fix their server or offer a non-tor option.` );
+                }
                 setTimeout( () => {upload_data = [];$( '.project_pic' ).value = null;}, 500 );
                 showModal( `
                     <p>Creating your project, please wait</p>
@@ -2585,10 +2918,11 @@
                     project_dsc: $( '.project_dsc' ).value,
                     project_gol: Number( $( '.project_gol' ).value ) * 100000000,
                     project_add: $( '.project_add' ).value,
+                    project_lna: $( '.project_lna' ).value,
                     project_end: end_block,
                     project_key: btc_pub,
                 }
-                var b64_2 = btoa( JSON.stringify( project ) )
+                var b64_2 = btoa( JSON.stringify( project ) );
                 var fulltext = b64_1 + "|---|" + b64_2;
                 socket = new WebSocket( relay );
                 socket.addEventListener('open', async function( e ) {
