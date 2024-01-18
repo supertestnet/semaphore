@@ -1952,6 +1952,7 @@
                     total_amt_pledged = total_amt_pledged.toLocaleString();
                 }
                 $( '.raised' ).innerText = total_amt_pledged;
+                if ( total_amt_pledged == 1 && raised_ending == "SATS" ) raised_ending = "SAT";
                 $( '.raised_ending' ).innerText = raised_ending;
                 var percent_funded = Number( ( ( original_total_amt_pledged / project.project_gol ) * 100 ).toFixed( 2 ) );
                 $( '.percent_funded' ).innerText = percent_funded + "%";
