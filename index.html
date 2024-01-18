@@ -1871,19 +1871,33 @@
                     var is_valid_invoice = isValidInvoice( json[ "invoice" ] );
                     if ( !is_valid_invoice ) return;
                     var invoice = json[ "invoice" ];
-                    console.log( invoice );
                     var ln_preimage = json[ "preimage" ];
-                    if ( !isValidHex( ln_preimage ) ) return;
-                    //get payment hash from invoice and check if preimage matches it
-                    var expected_pmthash = getInvoicePmthash( invoice );
-                    var real_pmthash = SHA256( nostr_image_host.hexToBytes( ln_preimage ) );
-                    var they_match = expected_pmthash == real_pmthash;
-                    if ( !they_match ) return;
-                    //then get expected description hash and check if actual one matches it
+                    if ( !ln_preimage ) return;
                     var lnaddress = project.project_lna;
                     var split_lna = lnaddress.split( "@" );
                     var domain = split_lna[ 1 ];
                     var username = split_lna[ 0 ];
+                    if ( !project.has_verify ) {
+                        if ( !isValidHex( ln_preimage ) ) return;
+                        //get payment hash from invoice and check if preimage matches it
+                        var expected_pmthash = getInvoicePmthash( invoice );
+                        var real_pmthash = SHA256( nostr_image_host.hexToBytes( ln_preimage ) );
+                        var they_match = expected_pmthash == real_pmthash;
+                        if ( !they_match ) return;
+                    } else {
+                        try {
+                            var url = new URL( ln_preimage );
+                            if ( url.hostname != domain ) return;
+                            var settlement_info = await getData( ln_preimage );
+                            settlement_info = JSON.parse( settlement_info );
+                            if ( settlement_info[ "pr" ] != invoice ) return;
+                            var settled = settlement_info[ "settled" ];
+                        } catch( e ) {
+                            var settled = false;
+                        }
+                        if ( !settled ) return;
+                    }
+                    //then get expected description hash and check if actual one matches it
                     var url = `https://${domain}/.well-known/lnurlp/${username}`;
                     var ln_info = await getData( url );
                     ln_info = JSON.parse( ln_info );
@@ -2552,23 +2566,28 @@
                 sessionStorage.removeItem( "modal_cleared" );
                 var ln_amount = await getNote( "ln_amount" );
                 ln_amount = Number( ln_amount );
+                ln_amount = ln_amount * 1000;
                 sessionStorage.removeItem( "ln_amount" );
-                if ( ln_amount > maxSendable ) return showModal( `The amount you entered is more than ${maxSendable.toLocaleString()} sats, the maximum amount allowed by the fundraiser's lightning address server. Please try again and contribute a smaller amount.` );
-                if ( ln_amount < minSendable ) return showModal( `The amount you entered is lower than ${minSendable.toLocaleString()} sats, the minimum amount allowed by the fundraiser's lightning address server. Please try again and contribute a larger amount.` );
+                if ( ln_amount > Math.floor( maxSendable / 1000 ) ) return showModal( `The amount you entered is more than ${Math.floor( maxSendable / 1000 ).toLocaleString()} sats, the maximum amount allowed by the fundraiser's lightning address server. Please try again and contribute a smaller amount.` );
+                if ( ln_amount < Math.floor( minSendable / 1000 ) ) return showModal( `The amount you entered is lower than ${Math.floor( minSendable / 1000 ).toLocaleString()} sats, the minimum amount allowed by the fundraiser's lightning address server. Please try again and contribute a larger amount.` );
                 sessionStorage.removeItem( "ln_public" );
-                showModal( `
-                    <p style="font-weight: bold;">Public or private?</p>
-                    <p>This software cannot "look up" your lightning payment like it can with a "regular" bitcoin payment because lightning payments are private by design and therefore are not recorded on a public blockchain. But a crowdfund, as the name implies, is meant to be public. So you have to do a bit of work if you want your lightning pledge publicly registered as a contribution the crowdfund.</p>
-                    <p>Lightning payments are "proven" with something called a "preimage" or a "proof of payment" which functions as a sort of receipt. To "publish" your contribution you must provide this preimage after you make your payment, but not all lightning wallets show it to you.</p>
-                    <p>If you want your contribution to be public, first ensure your wallet shows this preimage to you when you make a payment. (Try making a small payment to some other service, then view the transaction details, then look for something called a "preimage" or a "proof of payment.") You will be asked to paste it on the next page after you make the payment.</p>
-                    <p>Or you can decide *not* to publish this payment. If you choose that option, the recipient will still get the money but it won't count toward the fundraising goal. What do you want to do?</p>
-                    <p><button class="ln_public" onclick="sessionStorage[ 'ln_public' ] = true;sessionStorage[ 'modal_cleared' ] = true;">Public</button> <button class="ln_private" onclick="sessionStorage[ 'modal_cleared' ] = true;">Private</button></p>
-                `, true );
-                await getNote( "modal_cleared" );
-                sessionStorage.removeItem( "modal_cleared" );
-                var payment_is_public;
-                if ( sessionStorage[ "ln_public" ] ) payment_is_public = true;
-                sessionStorage.removeItem( "ln_public" );
+                if ( !project.has_verify ) {
+                    showModal( `
+                        <p style="font-weight: bold;">Public or private?</p>
+                        <p>This software cannot "look up" your lightning payment like it can with a "regular" bitcoin payment because lightning payments are private by design and therefore are not recorded on a public blockchain. But a crowdfund, as the name implies, is meant to be public. So you have to do a bit of work if you want your lightning pledge publicly registered as a contribution the crowdfund.</p>
+                        <p>Lightning payments are "proven" with something called a "preimage" or a "proof of payment" which functions as a sort of receipt. To "publish" your contribution you must provide this preimage after you make your payment, but not all lightning wallets show it to you.</p>
+                        <p>If you want your contribution to be public, first ensure your wallet shows this preimage to you when you make a payment. (Try making a small payment to some other service, then view the transaction details, then look for something called a "preimage" or a "proof of payment.") You will be asked to paste it on the next page after you make the payment.</p>
+                        <p>Or you can decide *not* to publish this payment. If you choose that option, the recipient will still get the money but it won't count toward the fundraising goal. What do you want to do?</p>
+                        <p><button class="ln_public" onclick="sessionStorage[ 'ln_public' ] = true;sessionStorage[ 'modal_cleared' ] = true;">Public</button> <button class="ln_private" onclick="sessionStorage[ 'modal_cleared' ] = true;">Private</button></p>
+                    `, true );
+                    await getNote( "modal_cleared" );
+                    sessionStorage.removeItem( "modal_cleared" );
+                    var payment_is_public;
+                    if ( sessionStorage[ "ln_public" ] ) payment_is_public = true;
+                    sessionStorage.removeItem( "ln_public" );                    
+                } else {
+                    var payment_is_public = true;
+                }
                 var lnaddress = project.project_lna;
                 var split_lna = lnaddress.split( "@" );
                 var domain = split_lna[ 1 ];
@@ -2580,6 +2599,7 @@
                 var second_url = `${callback}?amount=${ln_amount}`;
                 var invoice_info = await getData( second_url );
                 invoice_info = JSON.parse( invoice_info );
+                if ( "verify" in invoice_info ) var verify_url = invoice_info[ "verify" ];
                 var invoice = invoice_info[ "pr" ];
                 var url = "lightning:" + invoice;
                 var a = document.createElement( "a" );
@@ -2591,7 +2611,7 @@
                 prep_div.innerHTML = html;
                 prep_div.append( a );
                 var more_html = ``;
-                if ( payment_is_public ) {
+                if ( payment_is_public && !project.has_verify ) {
                     more_html += `
                         <p>Please paste the preimage here</p>
                         <p><input style="max-width: 90%" class="ln_preimage"></p>
@@ -2601,17 +2621,19 @@
                 var div_html = prep_div.innerHTML + more_html;
                 showModal( div_html );
                 if ( !payment_is_public ) return;
-                await getNote( "modal_cleared" );
+                if ( !project.has_verify ) await getNote( "modal_cleared" );
+                else await checkVerifyOnLoop( verify_url );
                 sessionStorage.removeItem( "modal_cleared" );
                 $( '.x_modal' ).click();
-                var ln_preimage = sessionStorage[ "ln_preimage" ];
-                sessionStorage.removeItem( "ln_preimage" );
-                console.log( "ln_preimage", ln_preimage );
-                var expected_pmthash = getInvoicePmthash( invoice );
-                console.log( "ln_pmthash", expected_pmthash );
-                var real_pmthash = SHA256( nostr_image_host.hexToBytes( ln_preimage ) );
-                var they_match = expected_pmthash == real_pmthash;
-                if ( !they_match ) return showModal( `It looks like you pasted your preimage wrong -- for some reason, it did not match the invoice. The recipient still got your money but I'm sorry to say your contribution won't count toward the fundraising goal.` );
+                if ( !project.has_verify ) var ln_preimage = sessionStorage[ "ln_preimage" ];
+                else var ln_preimage = verify_url;
+                if ( !project.has_verify ) {
+                    sessionStorage.removeItem( "ln_preimage" );
+                    var expected_pmthash = getInvoicePmthash( invoice );
+                    var real_pmthash = SHA256( nostr_image_host.hexToBytes( ln_preimage ) );
+                    var they_match = expected_pmthash == real_pmthash;
+                    if ( !they_match ) return showModal( `It looks like you pasted your preimage wrong -- for some reason, it did not match the invoice. The recipient still got your money but I'm sorry to say your contribution won't count toward the fundraising goal.` );
+                }
                 sessionStorage.removeItem( "modal_cleared" );
                 sessionStorage.removeItem( "comment" );
                 showModal( `
@@ -2642,7 +2664,6 @@
                 await getNote( "modal_cleared" );
                 var comment = await getNote( "comment" );
                 sessionStorage.removeItem( "comment" );
-                console.log( "comment:", comment );
                 var note = JSON.stringify({
                     fundraiser_id: $_GET[ "fundraiser" ],
                     is_lightning: true,
@@ -2666,7 +2687,6 @@
                 socket.close();
                 var html = `<p>Success! Your contribution has been recorded</p>`;
                 showModal( html );
-
             }
             var SHA256 = string_or_uint8array => nostr_image_host.bytesToHex( sha256( string_or_uint8array ) );
             var isValidInvoice = invoice => {
@@ -2748,6 +2768,15 @@
                 var overall_length = ( ( sig_parts[ 0 ].length / 2 ) + 2 + ( sig_parts[ 1 ].length / 2 ) + 2 ).toString( 16 );
                 var der_sig = `30${overall_length}${part_one_prefix}${sig_parts[ 0 ]}${part_two_prefix}${sig_parts[ 1 ]}`;
                 return der_sig;
+            }
+            var checkVerifyOnLoop = async url => {
+                var settlement_info = await getData( url );
+                settlement_info = JSON.parse( settlement_info );
+                var settled = settlement_info[ "settled" ];
+                if ( settled ) return true;
+                await nostr_image_host.waitSomeSeconds( 2 );
+                var test = await checkVerifyOnLoop( url );
+                return test;
             }
         </script>
     </head>
@@ -2864,6 +2893,7 @@
             $( '.submit_new_project' ).onclick = async () => {
                 if ( $( '.project_lna' ).value ) {
                     var lnaddress = $( '.project_lna' ).value;
+                    if ( lnaddress.startsWith( " " ) ) return showModal( `Your lightning address started with a space character, which is invalid. Please check it and try again` );
                     var split_lna = lnaddress.split( "@" );
                     var domain = split_lna[ 1 ];
                     var username = split_lna[ 0 ];
@@ -2877,9 +2907,11 @@
                     var minSendable = ln_info[ "minSendable" ];
                     var callback = ln_info[ "callback" ];
                     var second_url = `${callback}?amount=${minSendable}`;
+                    var has_verify = false;
                     try {
                         var invoice_info = await getData( second_url );
                         invoice_info = JSON.parse( invoice_info );
+                        if ( "verify" in invoice_info ) has_verify = true;
                         var invoice = invoice_info[ "pr" ];
                         if ( !invoice ) throw "didn't work";
                     } catch( e ) {
@@ -2919,6 +2951,7 @@
                     project_gol: Number( $( '.project_gol' ).value ) * 100000000,
                     project_add: $( '.project_add' ).value,
                     project_lna: $( '.project_lna' ).value,
+                    has_verify,
                     project_end: end_block,
                     project_key: btc_pub,
                 }
