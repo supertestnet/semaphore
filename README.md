@@ -5,10 +5,10 @@ Crowdfunding with bitcoin
 A crowdfunding app that uses bitcoin's smart contracting functionality to let contributors recover their funds if the fundraiser does not reach its goal
 
 # How can I try it?
-Just click here: https://semaphore.finance/
+Just click here: https://supertestnet.github.io/semaphore/
 
 # Or view an existing fundraiser
-Just click here: https://semaphore.finance/?fundraiser=sprj13n5y0vnu9ajuaund2nxzphy357m82gk7vumup4mys67ketxlsch8wumn8ghj7mn0wd68yat99e3k7mggacq09
+Just click here: https://supertestnet.github.io/semaphore/?fundraiser=sprj13n5y0vnu9ajuaund2nxzphy357m82gk7vumup4mys67ketxlsch8wumn8ghj7mn0wd68yat99e3k7mggacq09
 
 # Video explainer
 [![](https://i.ibb.co/v1Srq3g/semaphore-yt-thumbnail-with-yt-logo.jpg)](https://www.youtube.com/watch?v=VHGRQVuVtCY)
