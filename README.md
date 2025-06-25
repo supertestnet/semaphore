@@ -39,3 +39,4 @@ The core idea is the same, but:
 - I have pledgers create 900 signatures in increments of 1% above the goal amount, that way the recipient can take the money even if he 10x's his goal. I don't think Lighthouse did that
 - I made a mechanism for semi automatic refunds using (again) presigned transactions, where anyone visiting the site 24 hours after the fundraiser ends automatically sends everyone their money back. I don't think Lighthouse had a similar feature
 - I also have an "irreversible pledge" option where you send the money directly to the recipient without doing any funky signature stuff, and I don't think Lighthouse had that
+- I added support for the lightning network but only if you use the "irreversible pledge" option, and I'm sure Lighthouse did not have that, as lightning didn't exist yet when Lighthouse was created
