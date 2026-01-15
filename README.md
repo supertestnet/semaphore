@@ -33,7 +33,7 @@ If you have enough to make up the difference just contribute your own funds to t
 # How does this differ from Lighthouse by Mike Hearn?
 The core idea is the same, but there are three "big" differences and four smaller differences. The big differences are:
 
-- I made a mechanism for semi automatic refunds using (again) presigned transactions, where anyone visiting the site 24 hours after the fundraiser ends automatically sends everyone their money back. I don't think Lighthouse had a similar feature
+- I made a mechanism for semi automatic refunds using presigned transactions, where anyone visiting the site 24 hours after the fundraiser ends automatically sends everyone their money back, if the pledge didn't reach its goal or the "recipient" didn't come take the funds. I don't think Lighthouse had a similar feature
 - I added support for the lightning network but only if you use the "irreversible pledge" option, and I'm sure Lighthouse did not have that, as lightning didn't exist yet when Lighthouse was created
 - I have pledgers create 900 signatures in increments of 1% above the goal amount, that way the recipient can take the "extra" money even if he 10x's his goal. I don't think Lighthouse did that -- for example, if you wanted to raise 50k sats in lighthouse and people actually pledged 70k sats, I think your only option was to take the 50k sats, and the rest would go to mining fees. Mine lets you take the full amount unless it exceeds your pledge by 10x
 
