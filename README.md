@@ -31,12 +31,15 @@ Alternative fundraising platforms like geyser.fund don't let contributors take t
 If you have enough to make up the difference just contribute your own funds to the fundraiser so that you *do* have enough. That's perfectly acceptable in my opinion and I hope it is clear to contributors that the recipient can contribute too.
 
 # How does this differ from Lighthouse by Mike Hearn?
-The core idea is the same, but:
+The core idea is the same, but there are three "big" differences and four smaller differences. The big differences are:
+
+- I made a mechanism for semi automatic refunds using (again) presigned transactions, where anyone visiting the site 24 hours after the fundraiser ends automatically sends everyone their money back. I don't think Lighthouse had a similar feature
+- I added support for the lightning network but only if you use the "irreversible pledge" option, and I'm sure Lighthouse did not have that, as lightning didn't exist yet when Lighthouse was created
+- I have pledgers create 900 signatures in increments of 1% above the goal amount, that way the recipient can take the "extra" money even if he 10x's his goal. I don't think Lighthouse did that -- for example, if you wanted to raise 50k sats in lighthouse and people actually pledged 70k sats, I think your only option was to take the 50k sats, and the rest would go to mining fees. Mine lets you take the full amount unless it exceeds your pledge by 10x
+
+The smaller differences are:
 
 - To get utxo data, Lighthouse used a p2p network bootstrapped via Mike Hearn's bitcoinXT software. I just use https://mempool.space which is a more centralized way to do it
 - Lighthouse assumed users keep funds in the built in wallet and then it marked some of them as "do not spend" if they were designated for a pledge. I just have users send the exact amount they want to contribute and don't assume users keep any additional funds in Semaphore
 - I use a multisig so that other people can't "complete" the fundraiser on the recipients behalf, he has to do it himself. I don't think Lighthouse did that, I think it allowed anyone who saw the published signatures to complete the transaction on the fundraiser's behalf
-- I have pledgers create 900 signatures in increments of 1% above the goal amount, that way the recipient can take the money even if he 10x's his goal. I don't think Lighthouse did that
-- I made a mechanism for semi automatic refunds using (again) presigned transactions, where anyone visiting the site 24 hours after the fundraiser ends automatically sends everyone their money back. I don't think Lighthouse had a similar feature
-- I also have an "irreversible pledge" option where you send the money directly to the recipient without doing any funky signature stuff, and I don't think Lighthouse had that
-- I added support for the lightning network but only if you use the "irreversible pledge" option, and I'm sure Lighthouse did not have that, as lightning didn't exist yet when Lighthouse was created
+- I have an "irreversible pledge" option where you send the money directly to the recipient without doing any funky signature stuff, and I don't think Lighthouse had that
