@@ -2892,6 +2892,8 @@
             $( '.project_lna' ).value = "";
             $( '.project_end' ).value = "";
             $( '.submit_new_project' ).onclick = async () => {
+                var conf = confirm( `This software is not maintained by its developer and you CAN lose your money with it. You probably will. It is recommended only for scientific experimentation and testnet usage. Click ok if you understand this risk and want to make a fundraiser anyway; otherwise, click cancel.` );
+                if ( !conf ) return;
                 if ( $( '.project_lna' ).value ) {
                     var lnaddress = $( '.project_lna' ).value;
                     if ( lnaddress.startsWith( " " ) ) return showModal( `Your lightning address started with a space character, which is invalid. Please check it and try again` );
